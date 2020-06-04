@@ -16,10 +16,15 @@ jobs:
         submodules: true
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
-    - name: Build
+    - name: Setup VSWhere.exe
+      uses: warrenbuckley/Setup-VSWhere@v1
+    - name: Add MSBuild to PATH
       run: |
-        set MSBuild="%SystemRoot%\Microsoft.NET\Framework\v4.0.30319\msbuild.exe"
-        %MSBuild% NemerleAll.nproj /t:InstallerFull /tv:4.0 /p:TargetFrameworkVersion=v4.0;Configuration=Release
+        $exe = vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+        $dir = Split-Path $exe -Parent
+        echo "::add-path::$dir"
+    - name: Build
+      run: msbuild NemerleAll.nproj /t:InstallerFull /tv:4.0 /p:TargetFrameworkVersion=v4.0;Configuration=Release
       shell: cmd
     - name: Remove wixpdb
       run: Remove-Item bin\Release\net-4.0\Installer\*.wixpdb
