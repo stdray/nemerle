@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - ftp
     tags:
       - v*
   pull_request:
@@ -28,8 +28,22 @@ jobs:
       shell: cmd
     - name: Remove wixpdb
       run: Remove-Item bin\Release\net-4.0\Installer\*.wixpdb
-    - uses: actions/upload-artifact@v2
+    - name: Upload artifacts to github build
+      uses: actions/upload-artifact@v2
       with:
         name: SetupAndBinaries
-        path: bin/Release/net-4.0/Installer/
+        path: bin/Release/net-4.0/Installer
+    - name: Upload artifacts to FTP
+      run: |
+        $Dir="bin/Release/net-4.0/Installer"
+        $ftp = "${{ secrets.MASTER_FTP_PATH }}" 
+        $user = "${{ secrets.FTP_LOGIN }}" 
+        $pass = "${{ secrets.FTP_PASSWORD }}"  
+        $webclient = New-Object System.Net.WebClient 
+        $webclient.Credentials = New-Object System.Net.NetworkCredential($user,$pass)  
+        foreach($item in (dir $Dir)){ 
+            "Uploading $item..." 
+            $uri = New-Object System.Uri($ftp+$item.Name) 
+            $webclient.UploadFile($uri, $item.FullName) 
+        }
 
