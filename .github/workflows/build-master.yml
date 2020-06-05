@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: windows-2016
+    steps:
+    - uses: actions/checkout@v2
+      with: 
+        submodules: true
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow
+    - name: Setup VSWhere
+      uses: warrenbuckley/Setup-VSWhere@v1
+    - name: Setup Environment
+      run: |
+        $exe = vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+        $dir = Split-Path $exe -Parent
+        echo "::add-path::$dir"
+        echo "::set-env name=TargetDir::bin/upload"
+    - name: Build from master branch
+      run: |
+        msbuild "NemerleAll.nproj" "/t:InstallerFull" "/tv:4.0" "/p:TargetFrameworkVersion=v4.0;Configuration=Release"
+        Remove-Item bin/Release/net-4.0/Installer/*.wixpdb
+        Move-Item -Path bin/Release/net-4.0/Installer -Destination ${{ env.TargetDir }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: SetupAndBinaries
+        path: ${{ env.TargetDir }}
+

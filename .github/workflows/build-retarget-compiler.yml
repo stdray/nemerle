@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - retarget-compiler
+jobs:
+  build:
+    runs-on: windows-2016
+    steps:
+    - uses: actions/checkout@v2
+      with: 
+        submodules: true
+    - uses: nuget/setup-nuget@v1
+      with:
+        nuget-version: 'latest'
+    - name: tmp
+      run: |
+        nuget source Add -Name "GitHub" -Source "https://nuget.pkg.github.com/stdray/index.json" -UserName stdray -Password ${{ secrets.GITHUB_TOKEN }}
+        nuget setApiKey ${{ secrets.GITHUB_TOKEN }} -Source "https://nuget.pkg.github.com/stdray/index.json"
+        nuget push "bin\upload\rsdn.nemerle.compiler.1.2.1-retarget-compile0001.nupkg" -Source "GitHub"
+        Throw "123"
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow
+    - name: Setup VSWhere
+      uses: warrenbuckley/Setup-VSWhere@v1
+    - name: Setup Environment
+      run: |
+        $exe = vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+        $dir = Split-Path $exe -Parent
+        echo "::add-path::$dir"
+        echo "::set-env name=TargetDir::bin/upload"
+    - name: Build from retarget-compiler branch
+      run: |
+        GitVersion.exe /updateassemblyinfo
+        $GitVersion = gitversion |ConvertFrom-Json
+        $Config="Release"
+        $MSBUILDENABLEALLPROPERTYFUNCTIONS=1
+        $NemerlePath="bin\$Config\net-4.0"
+        msbuild "NemerleAll.nproj" "/t:Stage2;CompilerTests;_ComputationExpressions;_Async;Install" "/p:NTargetName=Build;Configuration=$Config;NInstall=$NemerlePath"
+        New-Item -Path ${{ env.TargetDir }} -ItemType Directory
+        dotnet tool install Octopus.DotNet.Cli --global
+        $PackVer = $GitVersion.NuGetVersionV2
+        $DistDir = Join-Path -Path $NemerlePath -ChildPath 'Stage2'
+        dotnet-octo pack --id rsdn.nemerle.compiler --version $PackVer --basePath $DistDir --outFolder ${{ env.TargetDir }} --author RSDN
+    - name: Publish nuget package
+      run: |
+        nuget source Add -Name "GitHub" -Source "https://nuget.pkg.github.com/${{github.repository}}/index.json" -UserName ${{github.repository_owner}}
+        $pattern = Join-Path -Path ${{ env.TargetDir }} -ChildPath '*.nupkg'
+        $files = Get-ChildItem $pattern
+        ForEach ($file in $files) {
+          nuget push $file.fullName -Source "GitHub"
+        }
+    - uses: actions/upload-artifact@v2
+      with:
+        name: NuGetPackage
+        path: ${{ env.TargetDir }}
+
