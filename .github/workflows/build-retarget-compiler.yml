@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - retarget-compiler
+jobs:
+  build:
+    runs-on: windows-2016
+    steps:
+    - uses: actions/checkout@v2
+      with: 
+        submodules: true
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow
+    - name: Setup VSWhere
+      uses: warrenbuckley/Setup-VSWhere@v1
+    - name: Setup Environment
+      run: |
+        $exe = vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+        $dir = Split-Path $exe -Parent
+        echo "::add-path::$dir"
+        echo "::set-env name=TargetDir::bin/upload"
+    - name: Build from retarget-compiler branch
+      run: |
+        GitVersion.exe /updateassemblyinfo
+        $GitVersion = gitversion |ConvertFrom-Json
+        $Config="Release"
+        $MSBUILDENABLEALLPROPERTYFUNCTIONS=1
+        $NemerlePath="bin\$Config\net-4.0"
+        msbuild "NemerleAll.nproj" "/t:Stage2;CompilerTests;_ComputationExpressions;_Async;Install" "/p:NTargetName=Build;Configuration=$Config;NInstall=$NemerlePath"
+        New-Item -Path ${{ env.TargetDir }} -ItemType Directory
+        dotnet tool install Octopus.DotNet.Cli --global
+        $PackVer = $GitVersion.NuGetVersionV2
+        $InstallerDir = Join-Path -Path $NemerlePath -ChildPath 'Installer'
+        dotnet-octo pack --id rsdn.nemerle.compiler --version $PackVer --basePath $InstallerDir --outFolder ${{ env.TargetDir }} --author RSDN
+    - uses: actions/upload-artifact@v2
+      with:
+        name: SetupAndBinaries
+        path: ${{ env.TargetDir }}
+
