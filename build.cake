@@ -7,17 +7,45 @@ var nccBoot       = Argument("nccBoot", "boot-dnlib");
 var netCoreVersion = Argument("netCoreVersion", "2.1.0");
 
 //////////////////////////////////////////////////////////////////////
-// TASKS
+// CONSTANTS
 //////////////////////////////////////////////////////////////////////
+
+var stage1Out     = $"bin/{configuration}";
+var stage2Out     = $"bin/{configuration}/Stage2";
+var testRunnerOut = "snippets/Nemerle.Test/Nemerle.Compiler.Test/bin/Release";
+
+string RuntimeConfig(string version) => $@"{{
+  ""runtimeOptions"": {{
+    ""framework"": {{
+      ""name"": ""Microsoft.NETCore.App"",
+      ""version"": ""{version}"",
+      ""rollForward"": ""LatestPatch""
+    }}
+  }}
+}}";
+
+var ShimCsproj = @"<Project Sdk=""Microsoft.NET.Sdk"">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>System.Security.Permissions</AssemblyName>
+  </PropertyGroup>
+</Project>";
+
+var ShimCs = @"namespace System.Security.Permissions {
+    public class SecurityAttribute : System.Attribute {
+        public SecurityAttribute(System.Security.Permissions.SecurityAction action) { }
+        public bool Unrestricted { get; set; }
+    }
+    public enum SecurityAction { Demand, Assert, Deny, PermitOnly, LinkDemand,
+        InheritanceDemand, RequestMinimum, RequestOptional, RequestRefuse }
+}";
 
 //////////////////////////////////////////////////////////////////////
 // HELPERS
 //////////////////////////////////////////////////////////////////////
 
-// Discover .NET Core 2.1 runtime directory dynamically
 string FindNetCore21Runtime()
 {
-    // Try DOTNET_ROOT first, then standard locations
     var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
     if (string.IsNullOrEmpty(dotnetRoot))
         dotnetRoot = Environment.GetEnvironmentVariable("ProgramFiles") + "/dotnet";
@@ -28,33 +56,69 @@ string FindNetCore21Runtime()
     if (!DirectoryExists(sharedDir))
         throw new Exception($"Cannot find .NET runtime shared directory: {sharedDir}");
 
-    // Find highest matching runtime version
     var majorMinor = netCoreVersion.Substring(0, netCoreVersion.LastIndexOf('.'));
-    var searchPattern = $"{majorMinor}.*";
-    var dirs = System.IO.Directory.GetDirectories(sharedDir, searchPattern);
+    var dirs = System.IO.Directory.GetDirectories(sharedDir, $"{majorMinor}.*");
     if (dirs.Length == 0)
-        throw new Exception($"No .NET Core {majorMinor} runtime found! Install via dotnet-install script.");
+        throw new Exception($"No .NET Core {majorMinor} runtime found!");
 
     System.Array.Sort(dirs);
     var latest = dirs[dirs.Length - 1].Replace('\\', '/');
-    Information($"  Found .NET Core 2.1 runtime: {latest}");
+    Information($"  Found .NET Core runtime: {latest}");
     return latest;
 }
 
+void WriteRuntimeConfig(string path)
+    => System.IO.File.WriteAllText(path, RuntimeConfig(netCoreVersion));
+
+int Ncc(string tool, string sources, string refs, string targetType, string output)
+    => StartProcess("dotnet", $"\"{tool}\" {sources} {refs} -t {targetType} -o \"{output}\"");
+
+// Shared framework refs (-r for compiler invocation)
+string[] FrameworkRefs(string nccRt) => new[] {
+    $"-r \"{nccRt}/System.Console.dll\"",
+    $"-r \"{nccRt}/System.Runtime.Extensions.dll\"",
+    $"-r \"{nccRt}/System.Threading.Thread.dll\"",
+    $"-r \"{nccRt}/System.IO.FileSystem.dll\"",
+};
+
+// Nemerle library refs from a compiler directory
+string[] NemerleRefs(string compDir) => new[] {
+    $"-r \"{compDir}/Nemerle.dll\"",
+    $"-r \"{compDir}/Nemerle.Compiler.dll\"",
+    $"-r \"{compDir}/Nemerle.Macros.dll\"",
+    $"-r \"{compDir}/System.Security.Permissions.dll\"",
+};
+
+string AllRefs(string compDir, string nccRt)
+    => string.Join(" ", NemerleRefs(compDir).Concat(FrameworkRefs(nccRt)));
+
+// Test runner -ref flags
+string[] TestRunnerRefs(string nccBootDir, string nccRt)
+{
+    var fr = FrameworkRefs(nccRt)
+        .Select(r => r.Replace("-r ", "-ref "))
+        .ToList();
+    fr.Add($@"-ref ""{nccBootDir}/System.Security.Permissions.dll""");
+    fr.Add($@"-ref ""{nccRt}/System.Linq.dll""");
+    fr.Add($@"-ref ""{nccRt}/System.Text.RegularExpressions.dll""");
+    fr.Add($@"-ref ""{nccRt}/System.Collections.dll""");
+    return fr.ToArray();
+}
+
+//////////////////////////////////////////////////////////////////////
+// TASKS
+//////////////////////////////////////////////////////////////////////
 
 Task("Clean")
     .Does(() =>
 {
     Information("Cleaning all build artifacts...");
-    var dirsToClean = new[] { "bin", "obj" };
-    foreach (var dir in dirsToClean)
-    {
+    foreach (var dir in new[] { "bin", "obj" })
         if (DirectoryExists(dir))
         {
             DeleteDirectory(dir, new DeleteDirectorySettings { Recursive = true });
             Information($"  Deleted {dir}/");
         }
-    }
     Information("Clean completed.");
 });
 
@@ -63,55 +127,25 @@ Task("FixBoot")
     .Does(() =>
 {
     Information("Fixing boot-dnlib compiler...");
-
-    // 1. Create ncc.runtimeconfig.json
-    var runtimeConfig = $@"{{
-  ""runtimeOptions"": {{
-    ""framework"": {{
-      ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""{netCoreVersion}"",
-      ""rollForward"": ""LatestPatch""
-    }}
-  }}
-}}";
-    System.IO.File.WriteAllText($"{nccBoot}/ncc.runtimeconfig.json", runtimeConfig);
+    WriteRuntimeConfig($"{nccBoot}/ncc.runtimeconfig.json");
     Information("  Created ncc.runtimeconfig.json");
 
-    // 2. Ensure System.Security.Permissions.dll exists
     var permsDll = $"{nccBoot}/System.Security.Permissions.dll";
     if (!FileExists(permsDll))
     {
         Information("  Building System.Security.Permissions shim...");
         var shimDir = "tmp_shim";
         EnsureDirectoryExists(shimDir);
-
-        System.IO.File.WriteAllText($"{shimDir}/shim.csproj",
-@"<Project Sdk=""Microsoft.NET.Sdk"">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>System.Security.Permissions</AssemblyName>
-  </PropertyGroup>
-</Project>");
-        System.IO.File.WriteAllText($"{shimDir}/SecurityAttribute.cs",
-@"namespace System.Security.Permissions {
-    public class SecurityAttribute : System.Attribute {
-        public SecurityAttribute(System.Security.Permissions.SecurityAction action) { }
-        public bool Unrestricted { get; set; }
-    }
-    public enum SecurityAction { Demand, Assert, Deny, PermitOnly, LinkDemand, InheritanceDemand, RequestMinimum, RequestOptional, RequestRefuse }
-}");
-        var msBuildSettings = new DotNetMSBuildSettings();
-        msBuildSettings.SetConfiguration(configuration);
-        DotNetBuild(shimDir, new DotNetBuildSettings {
-            MSBuildSettings = msBuildSettings
-        });
+        System.IO.File.WriteAllText($"{shimDir}/shim.csproj", ShimCsproj);
+        System.IO.File.WriteAllText($"{shimDir}/SecurityAttribute.cs", ShimCs);
+        var ms = new DotNetMSBuildSettings();
+        ms.SetConfiguration(configuration);
+        DotNetBuild(shimDir, new DotNetBuildSettings { MSBuildSettings = ms });
         CopyFile($"{shimDir}/bin/{configuration}/netstandard2.0/System.Security.Permissions.dll", permsDll);
         Information("  System.Security.Permissions.dll created");
     }
     else
-    {
         Information("  System.Security.Permissions.dll already exists");
-    }
 });
 
 Task("BuildTasks")
@@ -119,13 +153,11 @@ Task("BuildTasks")
     .Does(() =>
 {
     Information("Building MSBuild Tasks...");
-    var msBuildSettings = new DotNetMSBuildSettings();
-    msBuildSettings.SetConfiguration(configuration);
-    DotNetBuild("Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
-        MSBuildSettings = msBuildSettings
-    });
-    try { CopyFile($"bin/{configuration}/Nemerle.MSBuild.Tasks.dll", $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); }
-    catch { Warning("  MSBuild Tasks DLL locked — using committed version in boot-dnlib"); }
+    var ms = new DotNetMSBuildSettings();
+    ms.SetConfiguration(configuration);
+    DotNetBuild("Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings { MSBuildSettings = ms });
+    try { CopyFile($"{stage1Out}/Nemerle.MSBuild.Tasks.dll", $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); }
+    catch { Warning("  MSBuild Tasks DLL locked — using committed version"); }
     Information("  MSBuild Tasks built.");
 });
 
@@ -137,7 +169,6 @@ Task("PrepareSdk")
     var sdkDir = "tools/msbuild-task";
     CopyFile($"{sdkDir}/Nemerle.Sdk.props",  $"{nccBoot}/Nemerle.Sdk.props");
     CopyFile($"{sdkDir}/Nemerle.Sdk.targets", $"{nccBoot}/Nemerle.Sdk.targets");
-    // Targets file is patched manually in boot-dnlib already
     Information("  SDK files ready.");
 });
 
@@ -151,56 +182,32 @@ Task("Stage1")
     void BuildNproj(string nproj)
     {
         Information($"  Building {nproj}...");
-        // Restore
-        var restoreSettings = new DotNetRestoreSettings {
+        DotNetRestore(nproj, new DotNetRestoreSettings {
             ArgumentCustomization = args => args.Append($"/p:Nemerle={nccBoot}")
-        };
-        DotNetRestore(nproj, restoreSettings);
-        // Build
-        var msBuildSettings = new DotNetMSBuildSettings();
-        msBuildSettings.SetConfiguration(configuration);
-        msBuildSettings.WithProperty("Nemerle", nccBoot);
-        DotNetBuild(nproj, new DotNetBuildSettings {
-            MSBuildSettings = msBuildSettings
         });
+        var ms = new DotNetMSBuildSettings();
+        ms.SetConfiguration(configuration);
+        ms.WithProperty("Nemerle", nccBoot);
+        DotNetBuild(nproj, new DotNetBuildSettings { MSBuildSettings = ms });
     }
 
     BuildNproj("Nemerle.nproj");
     BuildNproj("Nemerle.Compiler.nproj");
     BuildNproj("Nemerle.Macros.nproj");
 
-    // ncc-core: direct compiler invocation (bypasses MSBuild/TF issues)
+    // ncc-core: direct ncc invocation (MSBuild can't handle netcoreapp2.1 TF)
     Information("  Building ncc-core.exe...");
     var nccRt = FindNetCore21Runtime();
-    var nccArgs = $"\"{nccBoot}/ncc.exe\" ncc/main.n ncc/shared/AssemblyInfo.n " +
-        $"-r \"{nccBoot}/System.Security.Permissions.dll\" " +
-        $"-r \"{nccBoot}/Nemerle.Compiler.dll\" " +
-        $"-r \"{nccBoot}/Nemerle.Macros.dll\" " +
-        $"-r \"{nccRt}/System.Console.dll\" " +
-        $"-r \"{nccRt}/System.Runtime.Extensions.dll\" " +
-        $"-r \"{nccRt}/System.Threading.Thread.dll\" " +
-        $"-r \"{nccRt}/System.IO.FileSystem.dll\" " +
-        $"-t exe -o bin/{configuration}/ncc-core.exe";
-    var exitCode = StartProcess("dotnet", nccArgs);
+    var exitCode = Ncc($"{nccBoot}/ncc.exe",
+        "ncc/main.n ncc/shared/AssemblyInfo.n",
+        AllRefs(nccBoot, nccRt),
+        "exe", $"{stage1Out}/ncc-core.exe");
     if (exitCode != 0)
         throw new Exception($"ncc-core build failed with exit code {exitCode}");
 
-    CopyFile($"{nccBoot}/dnlib.dll", $"bin/{configuration}/dnlib.dll");
-    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"bin/{configuration}/System.Security.Permissions.dll");
-
-    // Create runtimeconfig.json for ncc-core.exe
-    var nccRtConfig =
-@"{{
-  ""runtimeOptions"": {{
-    ""framework"": {{
-      ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""{netCoreVersion}"",
-      ""rollForward"": ""LatestPatch""
-    }}
-  }}
-}}";
-    System.IO.File.WriteAllText($"bin/{configuration}/ncc-core.runtimeconfig.json", nccRtConfig);
-    Information("  Created ncc-core.runtimeconfig.json");
+    CopyFile($"{nccBoot}/dnlib.dll", $"{stage1Out}/dnlib.dll");
+    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{stage1Out}/System.Security.Permissions.dll");
+    WriteRuntimeConfig($"{stage1Out}/ncc-core.runtimeconfig.json");
     Information("=== Stage 1 complete! ===");
 });
 
@@ -210,116 +217,150 @@ Task("Stage1b")
 {
     Information("=== STAGE 1b: Building test runner ===");
 
-    var nccRt = FindNetCore21Runtime();
-    var ncc = $"dotnet {nccBoot}/ncc.exe";
-    var sec = $"-r {nccBoot}/System.Security.Permissions.dll";
-    var outDir = "snippets/Nemerle.Test/Nemerle.Compiler.Test/bin/Release";
-    var st1 = $"bin/{configuration}";
+    var tool   = $"{nccBoot}/ncc.exe";  // boot compiler builds test runner
+    var secRef = $"-r \"{nccBoot}/System.Security.Permissions.dll\"";
 
-    // Copy Stage1 libs + runtimeconfig to test runner dir (for HostedNcc)
-    EnsureDirectoryExists(outDir);
-    CopyFile($"{st1}/Nemerle.dll", $"{outDir}/Nemerle.dll");
-    CopyFile($"{st1}/Nemerle.Compiler.dll", $"{outDir}/Nemerle.Compiler.dll");
-    CopyFile($"{st1}/Nemerle.Macros.dll", $"{outDir}/Nemerle.Macros.dll");
-    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{outDir}/System.Security.Permissions.dll");
+    // Copy Stage 1 libs to test runner dir (HostedNcc version match)
+    EnsureDirectoryExists(testRunnerOut);
+    foreach (var dll in new[] { "Nemerle", "Nemerle.Compiler", "Nemerle.Macros" })
+        CopyFile($"{stage1Out}/{dll}.dll", $"{testRunnerOut}/{dll}.dll");
+    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{testRunnerOut}/System.Security.Permissions.dll");
 
-    // Build test framework
+    // Test framework
     Information("  Building Nemerle.Test.Framework.dll...");
-    var fwSrc = new[] {
+    var fwFiles = string.Join(" ", new[] {
         "ColorizedOutputWriter", "DefaultColorizedOutputWriter", "ExecutionListener",
         "IRunner", "MulticastExecutionListener", "Result", "Runner", "Statistics",
         "TeamCityExecutionListener", "Test", "ThreadRunner", "UnixColorizedOutputWriter",
         "VisualStudioExecutionListener", "Utils/FileSearcher", "Properties/AssemblyInfo"
-    };
-    var fwFiles = string.Join(" ", fwSrc.Select(f => $"snippets/Nemerle.Test/Nemerle.Test.Framework/{f}.n"));
-    StartProcess("dotnet", $"{nccBoot}/ncc.exe {fwFiles} {sec} -r {st1}/Nemerle.dll -t library -o {outDir}/Nemerle.Test.Framework.dll");
+    }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Test.Framework/{f}.n\""));
+    Ncc(tool, fwFiles, $"{secRef} -r \"{stage1Out}/Nemerle.dll\"",
+        "library", $"{testRunnerOut}/Nemerle.Test.Framework.dll");
 
-    // Build test runner
+    // Test runner
     Information("  Building Nemerle.Compiler.Test.dll...");
-    var trSrc = new[] {
+    var trFiles = string.Join(" ", new[] {
         "DefaultProcessStartInfoFactory", "ExternalNcc", "ExternalVerifier", "HostedNcc",
         "NccTestExecutionListener", "NccTestFileInfo", "ProcessExtensions", "ThreadPoolUtils",
         "VerifierResult", "Ncc", "Main", "NccMessageType", "NccResult", "NccTest",
         "NccTestDescription", "NccTestOutputWriter", "ProcessStartInfoFactory",
         "Properties/AssemblyInfo", "RuntimeProcessStartInfoFactory", "Verifier"
-    };
-    var trFiles = string.Join(" ", trSrc.Select(f => $"snippets/Nemerle.Test/Nemerle.Compiler.Test/{f}.n"));
-    var trArgs = $"{nccBoot}/ncc.exe {trFiles} {sec}" +
-        $" -r {outDir}/Nemerle.Test.Framework.dll" +
-        $" -r {st1}/Nemerle.dll -r {st1}/Nemerle.Compiler.dll -r {st1}/Nemerle.Macros.dll" +
-        $" -t exe -o {outDir}/Nemerle.Compiler.Test.dll";
-    StartProcess("dotnet", trArgs);
+    }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Compiler.Test/{f}.n\""));
+    var trRefs = $"{secRef} -r \"{testRunnerOut}/Nemerle.Test.Framework.dll\"" +
+                 $" -r \"{stage1Out}/Nemerle.dll\" -r \"{stage1Out}/Nemerle.Compiler.dll\"" +
+                 $" -r \"{stage1Out}/Nemerle.Macros.dll\"";
+    Ncc(tool, trFiles, trRefs, "exe", $"{testRunnerOut}/Nemerle.Compiler.Test.dll");
 
     Information("=== Stage 1b complete! ===");
 });
 
-Task("Test")
+Task("Stage2")
     .IsDependentOn("Stage1b")
     .Does(() =>
 {
-    Information("=== Running tests ===");
+    Information("=== STAGE 2: Building compiler with Stage 1 compiler ===");
 
     var nccRt = FindNetCore21Runtime();
+    var tool  = $"{stage1Out}/ncc-core.exe";  // Stage 1 → Stage 2
+    var refs  = AllRefs(stage1Out, nccRt);
+    EnsureDirectoryExists(stage2Out);
 
-    // Framework references (like C#/F# MSBuild ResolveFrameworkReferences)
-    var refArgs = string.Join(" ", new[] {
-        $"-ref \"{nccBoot}/System.Security.Permissions.dll\"",
-        $"-ref \"{nccRt}/System.Console.dll\"",
-        $"-ref \"{nccRt}/System.Runtime.Extensions.dll\"",
-        $"-ref \"{nccRt}/System.IO.FileSystem.dll\"",
-        $"-ref \"{nccRt}/System.Threading.Thread.dll\"",
-        $"-ref \"{nccRt}/System.Linq.dll\"",
-        $"-ref \"{nccRt}/System.Text.RegularExpressions.dll\"",
-        $"-ref \"{nccRt}/System.Collections.dll\"",
-    });
+    Ncc(tool, "lib/*.n", refs, "library", $"{stage2Out}/Nemerle.dll");
+    Information("    Nemerle.dll");
 
-    // Generate runtimeconfig.json for EXE tests
-    var rtConfig = $@"{{
-  ""runtimeOptions"": {{
-    ""framework"": {{
-      ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""{netCoreVersion}""
-    }}
-  }}
-}}";
+    var compSrc = string.Join(" ",
+        new[] { "ncc/shared", "ncc/backend", "ncc/frontend", "Nemerle.Location" }
+            .SelectMany(d => System.IO.Directory.GetFiles(d, "*.n", System.IO.SearchOption.AllDirectories))
+            .Select(f => $"\"{f}\""));
+    Ncc(tool, compSrc, refs, "library", $"{stage2Out}/Nemerle.Compiler.dll");
+    Information("    Nemerle.Compiler.dll");
+
+    var macSrc = string.Join(" ",
+        System.IO.Directory.GetFiles("macros", "*.n").Select(f => $"\"{f}\""));
+    Ncc(tool, macSrc, refs, "library", $"{stage2Out}/Nemerle.Macros.dll");
+    Information("    Nemerle.Macros.dll");
+
+    Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n", refs, "exe", $"{stage2Out}/ncc-core.exe");
+    Information("    ncc-core.exe");
+
+    CopyFile($"{stage1Out}/dnlib.dll", $"{stage2Out}/dnlib.dll");
+    CopyFile($"{stage1Out}/System.Security.Permissions.dll", $"{stage2Out}/System.Security.Permissions.dll");
+    WriteRuntimeConfig($"{stage2Out}/ncc-core.runtimeconfig.json");
+
+    Information("=== Stage 2 complete! ===");
+});
+
+Task("Validate")
+    .IsDependentOn("Stage2")
+    .Does(() =>
+{
+    Information("=== VALIDATE: Stage 1 vs Stage 2 ===");
+
+    var dlls = new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll" };
+    var allMatch = true;
+
+    foreach (var dll in dlls)
+    {
+        var s1 = $"{stage1Out}/{dll}";
+        var s2 = $"{stage2Out}/{dll}";
+        if (!FileExists(s1) || !FileExists(s2))
+        {
+            Warning($"  Missing: {dll}");
+            allMatch = false;
+            continue;
+        }
+        var b1 = System.IO.File.ReadAllBytes(s1);
+        var b2 = System.IO.File.ReadAllBytes(s2);
+        if (b1.Length != b2.Length)
+        {
+            Warning($"  MISMATCH {dll}: S1={b1.Length}B, S2={b2.Length}B");
+            allMatch = false;
+        }
+        else
+            Information($"  OK {dll}: {b1.Length} bytes");
+    }
+
+    if (allMatch) Information("=== Validate: ALL MATCH ===");
+    else Warning("=== Validate: MISMATCHES ===");
+});
+
+Task("Test")
+    .IsDependentOn("Stage2")
+    .Does(() =>
+{
+    Information("=== RUNNING TESTS ===");
+
+    var nccRt = FindNetCore21Runtime();
+    var refArgs = string.Join(" ", TestRunnerRefs(nccBoot, nccRt));
+
+    // Runtimeconfig for EXE tests
     int rtCount = 0;
     foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
-    {
         foreach (var f in System.IO.Directory.GetFiles(dir, "*.n"))
-        {
             if (System.IO.File.ReadAllText(f).Contains("BEGIN-OUTPUT"))
             {
                 System.IO.File.WriteAllText(
-                    System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"), rtConfig);
+                    System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"),
+                    RuntimeConfig(netCoreVersion));
                 rtCount++;
             }
-        }
-    }
     Information($"  Generated {rtCount} runtimeconfig.json files");
 
-    // Use the real test runner (HostedNcc + ThreadRunner)
-    var testExe = "snippets/Nemerle.Test/Nemerle.Compiler.Test/bin/Release/Nemerle.Compiler.Test.dll";
+    var testExe = $"{testRunnerOut}/Nemerle.Compiler.Test.dll";
 
-    // Positive
-    var posFiles = System.IO.Directory.GetFiles("testsuite/positive", "*.n");
-    var posFileArgs = string.Join(" ", posFiles.Select(f => $"\"{f}\""));
-    var posArgs = $"\"{testExe}\" {posFileArgs} -r dotnet -p \"-nowarn:10003\" {refArgs}";
-    Information($"  Positive: {posFiles.Length} tests...");
-    StartProcess("dotnet", posArgs);
-
-    // Negative
-    var negFiles = System.IO.Directory.GetFiles("testsuite/negative", "*.n");
-    var negFileArgs = string.Join(" ", negFiles.Select(f => $"\"{f}\""));
-    var negArgs = $"\"{testExe}\" {negFileArgs} -r dotnet -p \"-nowarn:10003\" {refArgs}";
-    Information($"  Negative: {negFiles.Length} tests...");
-    StartProcess("dotnet", negArgs);
+    foreach (var (label, dir) in new[] { ("Positive", "testsuite/positive"), ("Negative", "testsuite/negative") })
+    {
+        var files = string.Join(" ",
+            System.IO.Directory.GetFiles(dir, "*.n").Select(f => $"\"{f}\""));
+        Information($"  {label}: {System.IO.Directory.GetFiles(dir, "*.n").Length} tests...");
+        StartProcess("dotnet",
+            $"\"{testExe}\" {files} -r dotnet -p \"-nowarn:10003\" {refArgs}");
+    }
 
     Information("=== Tests complete ===");
 });
 
-
-
 Task("Default")
-    .IsDependentOn("Stage1");
+    .IsDependentOn("Validate");
 
 RunTarget(target);
