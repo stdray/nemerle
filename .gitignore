@@ -65,3 +65,15 @@ packages
 /testsuite/negative/*.dll
 /testsuite/positive/*.pdb
 /testsuite/positive/*.dll
+# Generated test runtime configs
+testsuite/positive/*.runtimeconfig.json
+testsuite/negative/*.runtimeconfig.json
+# Temp files
+abstract.xml
+testsuite/.tmp_test/
+testsuite/out_*
+# Generated test outputs
+testsuite/positive/*.exe
+testsuite/positive/*.dll
+testsuite/negative/*.exe
+testsuite/negative/*.dll

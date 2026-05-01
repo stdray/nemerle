@@ -1,0 +1,55 @@
+﻿// A
+protected virtual EqualsImpl(other : A.[]) : bool
+{
+  _  = other;
+  match (other)
+    {
+    | null => 
+      false
+    | _  => 
+      this._N_Y_3497 == other._N_Y_3497 && this._N_X_3490 == other._N_X_3490 && true
+  }
+}
+
+// A
+public Equals(other : A.[]) : bool
+{
+  EqualsImpl(other)
+}
+
+// A
+public override Equals(other : System.Object) : boolmatch (other)
+{
+  | (x is A.[]) => 
+    EqualsImpl(x)
+  | _  => 
+    false
+}
+
+// A
+public override GetHashCode() : int
+{
+  unchecked 
+  {
+    mutable (hash : int);
+    
+    {
+      
+      {
+        hash += _N_X_3490;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += _N_Y_3497;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      }
+    };
+    ();
+    ();
+    hash
+  }
+}
+

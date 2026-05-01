@@ -1,0 +1,58 @@
+﻿// B
+private EqualsImpl(other : B.[]) : bool
+{
+  _  = other;
+  match (other)
+    {
+    | null => 
+      false
+    | _  => 
+      this._N_Z_3520 == other._N_Z_3520 && base.EqualsImpl((other : A))
+  }
+}
+
+// B
+public Equals(other : B.[]) : bool
+{
+  EqualsImpl(other)
+}
+
+// B
+protected override EqualsImpl(other : A) : boolmatch (other)
+{
+  | (x is B.[]) => 
+    EqualsImpl(x)
+  | _  => 
+    false
+}
+
+// B
+public override Equals(other : System.Object) : boolmatch (other)
+{
+  | (x is B.[]) => 
+    EqualsImpl(x)
+  | _  => 
+    false
+}
+
+// B
+public override GetHashCode() : int
+{
+  unchecked 
+  {
+    mutable (hash : int);
+    
+    {
+      
+      {
+        hash += _N_Z_3520;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      }
+    };
+    hash ^= base.GetHashCode();
+    ();
+    hash
+  }
+}
+

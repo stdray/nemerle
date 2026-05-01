@@ -4,6 +4,7 @@
 var target        = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 var nccBoot       = Argument("nccBoot", "boot-dnlib");
+var netCoreVersion = Argument("netCoreVersion", "2.1.0");
 
 //////////////////////////////////////////////////////////////////////
 // TASKS
@@ -27,10 +28,12 @@ string FindNetCore21Runtime()
     if (!DirectoryExists(sharedDir))
         throw new Exception($"Cannot find .NET runtime shared directory: {sharedDir}");
 
-    // Find highest 2.1.x version
-    var dirs = System.IO.Directory.GetDirectories(sharedDir, "2.1.*");
+    // Find highest matching runtime version
+    var majorMinor = netCoreVersion.Substring(0, netCoreVersion.LastIndexOf('.'));
+    var searchPattern = $"{majorMinor}.*";
+    var dirs = System.IO.Directory.GetDirectories(sharedDir, searchPattern);
     if (dirs.Length == 0)
-        throw new Exception("No .NET Core 2.1 runtime found! Install it: dotnet-install.ps1 -Runtime dotnet -Version 2.1.30");
+        throw new Exception($"No .NET Core {majorMinor} runtime found! Install via dotnet-install script.");
 
     System.Array.Sort(dirs);
     var latest = dirs[dirs.Length - 1].Replace('\\', '/');
@@ -62,16 +65,15 @@ Task("FixBoot")
     Information("Fixing boot-dnlib compiler...");
 
     // 1. Create ncc.runtimeconfig.json
-    var runtimeConfig =
-@"{
-  ""runtimeOptions"": {
-    ""framework"": {
+    var runtimeConfig = $@"{{
+  ""runtimeOptions"": {{
+    ""framework"": {{
       ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""2.1.0""
-    },
-    ""rollForward"": ""LatestPatch""
-  }
-}";
+      ""version"": ""{netCoreVersion}"",
+      ""rollForward"": ""LatestPatch""
+    }}
+  }}
+}}";
     System.IO.File.WriteAllText($"{nccBoot}/ncc.runtimeconfig.json", runtimeConfig);
     Information("  Created ncc.runtimeconfig.json");
 
@@ -122,8 +124,9 @@ Task("BuildTasks")
     DotNetBuild("Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
         MSBuildSettings = msBuildSettings
     });
-    CopyFile($"bin/{configuration}/Nemerle.MSBuild.Tasks.dll", $"{nccBoot}/Nemerle.MSBuild.Tasks.dll");
-    Information("  MSBuild Tasks built and copied.");
+    try { CopyFile($"bin/{configuration}/Nemerle.MSBuild.Tasks.dll", $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); }
+    catch { Warning("  MSBuild Tasks DLL locked — using committed version in boot-dnlib"); }
+    Information("  MSBuild Tasks built.");
 });
 
 Task("PrepareSdk")
@@ -184,6 +187,20 @@ Task("Stage1")
 
     CopyFile($"{nccBoot}/dnlib.dll", $"bin/{configuration}/dnlib.dll");
     CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"bin/{configuration}/System.Security.Permissions.dll");
+
+    // Create runtimeconfig.json for ncc-core.exe
+    var nccRtConfig =
+@"{{
+  ""runtimeOptions"": {{
+    ""framework"": {{
+      ""name"": ""Microsoft.NETCore.App"",
+      ""version"": ""{netCoreVersion}"",
+      ""rollForward"": ""LatestPatch""
+    }}
+  }}
+}}";
+    System.IO.File.WriteAllText($"bin/{configuration}/ncc-core.runtimeconfig.json", nccRtConfig);
+    Information("  Created ncc-core.runtimeconfig.json");
     Information("=== Stage 1 complete! ===");
 });
 
@@ -194,13 +211,10 @@ Task("Test")
     Information("=== Running tests ===");
 
     var nccExe = $"bin/{configuration}/ncc-core.exe";
-    var nccRt = FindNetCore21Runtime();
-    var baseRefs = new[] {
-        $"-r {nccRt}/System.Console.dll",
-        $"-r {nccRt}/System.Runtime.Extensions.dll",
-        $"-r {nccRt}/System.IO.FileSystem.dll",
-        $"-nowarn:10003"
-    };
+    // Compiler auto-loads ALL framework assemblies from shared framework
+    var baseRefs = "-nowarn:10003";
+
+
 
     var positiveDir = "testsuite/positive";
     var negativeDir = "testsuite/negative";
@@ -211,7 +225,7 @@ Task("Test")
     {
         var outFile = $"{tmpDir}/{System.IO.Path.GetFileNameWithoutExtension(file)}";
         outFile += (extraArgs.Contains("-t:exe") ? ".exe" : ".dll");
-        var args = $"\"{nccExe}\" \"{file}\" {string.Join(" ", baseRefs)} {extraArgs} -o \"{outFile}\"";
+        var args = $"\"{nccExe}\" \"{file}\" {baseRefs} {extraArgs} -o \"{outFile}\"";
         var exitCode = StartProcess("dotnet", args);
         var ok = expectSuccess ? exitCode == 0 : exitCode != 0;
         if (!ok)
