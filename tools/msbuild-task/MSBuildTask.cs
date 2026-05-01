@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
-using Microsoft.Win32;
 
 namespace Nemerle.Tools.MSBuildTask
 {
@@ -115,7 +114,7 @@ namespace Nemerle.Tools.MSBuildTask
                     return path;
             }
 
-            var my_file = new Uri(typeof(Ncc).Assembly.CodeBase).LocalPath;
+            var my_file = new Uri(typeof(Ncc).Assembly.Location).LocalPath;
             var ncc_file = Path.Combine(Path.GetDirectoryName(my_file), toolName);
 
             if (File.Exists(ncc_file))
@@ -125,17 +124,19 @@ namespace Nemerle.Tools.MSBuildTask
                 return ncc_file;
             }
 
-            // Query the shell association
+            // Try to find the tool in the PATH environment variable
             //
-            var regKeyName = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" + toolName;
-            var regKey = Registry.LocalMachine.OpenSubKey(regKeyName);
-
-            if (null != regKey)
+            var pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathEnv))
             {
-                // The tool is registered with the Shell API.
-                //
-                return (string)regKey.GetValue(null);
+                foreach (var dir in pathEnv.Split(Path.PathSeparator))
+                {
+                    var candidate = Path.Combine(dir, toolName);
+                    if (File.Exists(candidate))
+                        return candidate;
+                }
             }
+
 
             // Return the tool name itself.
             // The environment will search common paths for the tool.
