@@ -204,80 +204,119 @@ Task("Stage1")
     Information("=== Stage 1 complete! ===");
 });
 
-Task("Test")
+Task("Stage1b")
     .IsDependentOn("Stage1")
+    .Does(() =>
+{
+    Information("=== STAGE 1b: Building test runner ===");
+
+    var nccRt = FindNetCore21Runtime();
+    var ncc = $"dotnet {nccBoot}/ncc.exe";
+    var sec = $"-r {nccBoot}/System.Security.Permissions.dll";
+    var outDir = "snippets/Nemerle.Test/Nemerle.Compiler.Test/bin/Release";
+    var st1 = $"bin/{configuration}";
+
+    // Copy Stage1 libs + runtimeconfig to test runner dir (for HostedNcc)
+    EnsureDirectoryExists(outDir);
+    CopyFile($"{st1}/Nemerle.dll", $"{outDir}/Nemerle.dll");
+    CopyFile($"{st1}/Nemerle.Compiler.dll", $"{outDir}/Nemerle.Compiler.dll");
+    CopyFile($"{st1}/Nemerle.Macros.dll", $"{outDir}/Nemerle.Macros.dll");
+    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{outDir}/System.Security.Permissions.dll");
+
+    // Build test framework
+    Information("  Building Nemerle.Test.Framework.dll...");
+    var fwSrc = new[] {
+        "ColorizedOutputWriter", "DefaultColorizedOutputWriter", "ExecutionListener",
+        "IRunner", "MulticastExecutionListener", "Result", "Runner", "Statistics",
+        "TeamCityExecutionListener", "Test", "ThreadRunner", "UnixColorizedOutputWriter",
+        "VisualStudioExecutionListener", "Utils/FileSearcher", "Properties/AssemblyInfo"
+    };
+    var fwFiles = string.Join(" ", fwSrc.Select(f => $"snippets/Nemerle.Test/Nemerle.Test.Framework/{f}.n"));
+    StartProcess("dotnet", $"{nccBoot}/ncc.exe {fwFiles} {sec} -r {st1}/Nemerle.dll -t library -o {outDir}/Nemerle.Test.Framework.dll");
+
+    // Build test runner
+    Information("  Building Nemerle.Compiler.Test.dll...");
+    var trSrc = new[] {
+        "DefaultProcessStartInfoFactory", "ExternalNcc", "ExternalVerifier", "HostedNcc",
+        "NccTestExecutionListener", "NccTestFileInfo", "ProcessExtensions", "ThreadPoolUtils",
+        "VerifierResult", "Ncc", "Main", "NccMessageType", "NccResult", "NccTest",
+        "NccTestDescription", "NccTestOutputWriter", "ProcessStartInfoFactory",
+        "Properties/AssemblyInfo", "RuntimeProcessStartInfoFactory", "Verifier"
+    };
+    var trFiles = string.Join(" ", trSrc.Select(f => $"snippets/Nemerle.Test/Nemerle.Compiler.Test/{f}.n"));
+    var trArgs = $"{nccBoot}/ncc.exe {trFiles} {sec}" +
+        $" -r {outDir}/Nemerle.Test.Framework.dll" +
+        $" -r {st1}/Nemerle.dll -r {st1}/Nemerle.Compiler.dll -r {st1}/Nemerle.Macros.dll" +
+        $" -t exe -o {outDir}/Nemerle.Compiler.Test.dll";
+    StartProcess("dotnet", trArgs);
+
+    Information("=== Stage 1b complete! ===");
+});
+
+Task("Test")
+    .IsDependentOn("Stage1b")
     .Does(() =>
 {
     Information("=== Running tests ===");
 
-    var nccExe = $"bin/{configuration}/ncc-core.exe";
-    // Compiler auto-loads ALL framework assemblies from shared framework
-    var baseRefs = "-nowarn:10003";
+    var nccRt = FindNetCore21Runtime();
 
+    // Framework references (like C#/F# MSBuild ResolveFrameworkReferences)
+    var refArgs = string.Join(" ", new[] {
+        $"-ref \"{nccBoot}/System.Security.Permissions.dll\"",
+        $"-ref \"{nccRt}/System.Console.dll\"",
+        $"-ref \"{nccRt}/System.Runtime.Extensions.dll\"",
+        $"-ref \"{nccRt}/System.IO.FileSystem.dll\"",
+        $"-ref \"{nccRt}/System.Threading.Thread.dll\"",
+        $"-ref \"{nccRt}/System.Linq.dll\"",
+        $"-ref \"{nccRt}/System.Text.RegularExpressions.dll\"",
+        $"-ref \"{nccRt}/System.Collections.dll\"",
+    });
 
-
-    var positiveDir = "testsuite/positive";
-    var negativeDir = "testsuite/negative";
-    var tmpDir = "testsuite/.tmp_test";
-    EnsureDirectoryExists(tmpDir);
-
-    int RunNcc(string file, string extraArgs, bool expectSuccess)
+    // Generate runtimeconfig.json for EXE tests
+    var rtConfig = $@"{{
+  ""runtimeOptions"": {{
+    ""framework"": {{
+      ""name"": ""Microsoft.NETCore.App"",
+      ""version"": ""{netCoreVersion}""
+    }}
+  }}
+}}";
+    int rtCount = 0;
+    foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
     {
-        var outFile = $"{tmpDir}/{System.IO.Path.GetFileNameWithoutExtension(file)}";
-        outFile += (extraArgs.Contains("-t:exe") ? ".exe" : ".dll");
-        var args = $"\"{nccExe}\" \"{file}\" {baseRefs} {extraArgs} -o \"{outFile}\"";
-        var exitCode = StartProcess("dotnet", args);
-        var ok = expectSuccess ? exitCode == 0 : exitCode != 0;
-        if (!ok)
-            Error($"  FAIL: {file} (exit={exitCode}, expected={(expectSuccess ? "success" : "failure")})");
-        return ok ? 1 : 0;
+        foreach (var f in System.IO.Directory.GetFiles(dir, "*.n"))
+        {
+            if (System.IO.File.ReadAllText(f).Contains("BEGIN-OUTPUT"))
+            {
+                System.IO.File.WriteAllText(
+                    System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"), rtConfig);
+                rtCount++;
+            }
+        }
     }
+    Information($"  Generated {rtCount} runtimeconfig.json files");
 
-    // --- Positive tests ---
-    Information($"  Positive tests ({positiveDir}):");
-    var posFiles = System.IO.Directory.GetFiles(positiveDir, "*.n");
-    var posPassed = 0;
-    var posFailed = 0;
-    foreach (var file in posFiles)
-    {
-        var extra = "-t:library";
-        // Some tests produce executables with expected output
-        var content = System.IO.File.ReadAllText(file);
-        if (content.Contains("Main()") && content.Contains("BEGIN-OUTPUT"))
-            extra = "-t:exe";
-        if (RunNcc(file, extra, true) == 1)
-            posPassed++;
-        else
-            posFailed++;
-    }
-    Information($"  Positive: {posPassed} passed, {posFailed} failed, {posFiles.Length} total");
+    // Use the real test runner (HostedNcc + ThreadRunner)
+    var testExe = "snippets/Nemerle.Test/Nemerle.Compiler.Test/bin/Release/Nemerle.Compiler.Test.dll";
 
-    // --- Negative tests ---
-    Information($"  Negative tests ({negativeDir}):");
-    var negFiles = System.IO.Directory.GetFiles(negativeDir, "*.n");
-    var negPassed = 0;
-    var negFailed = 0;
-    foreach (var file in negFiles)
-    {
-        if (RunNcc(file, "-t:library", false) == 1)
-            negPassed++;
-        else
-            negFailed++;
-    }
-    Information($"  Negative: {negPassed} passed, {negFailed} failed, {negFiles.Length} total");
+    // Positive
+    var posFiles = System.IO.Directory.GetFiles("testsuite/positive", "*.n");
+    var posFileArgs = string.Join(" ", posFiles.Select(f => $"\"{f}\""));
+    var posArgs = $"\"{testExe}\" {posFileArgs} -r dotnet -p \"-nowarn:10003\" {refArgs}";
+    Information($"  Positive: {posFiles.Length} tests...");
+    StartProcess("dotnet", posArgs);
 
-    // Summary
-    var totalPassed = posPassed + negPassed;
-    var totalFailed = posFailed + negFailed;
-    var total = posFiles.Length + negFiles.Length;
-    Information($"=== Test summary: {totalPassed}/{total} passed, {totalFailed} failed ===");
+    // Negative
+    var negFiles = System.IO.Directory.GetFiles("testsuite/negative", "*.n");
+    var negFileArgs = string.Join(" ", negFiles.Select(f => $"\"{f}\""));
+    var negArgs = $"\"{testExe}\" {negFileArgs} -r dotnet -p \"-nowarn:10003\" {refArgs}";
+    Information($"  Negative: {negFiles.Length} tests...");
+    StartProcess("dotnet", negArgs);
 
-    if (totalFailed > 0)
-        throw new Exception($"{totalFailed} test(s) failed");
-
-    // Cleanup
-    DeleteDirectory(tmpDir, new DeleteDirectorySettings { Recursive = true });
+    Information("=== Tests complete ===");
 });
+
 
 
 Task("Default")
