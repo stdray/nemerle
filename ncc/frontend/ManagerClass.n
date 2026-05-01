@@ -567,6 +567,7 @@ namespace Nemerle.Compiler
           load(typeof(System.Uri));                // System
           load(typeof(System.Xml.XmlNode));        // System.Xml
           load(typeof(Nemerle.Collections.NList)); // Nemerle
+          load(typeof(System.Security.Permissions.SecurityAttribute)); // System.Security.Permissions
         }
 
         unless(Options.DisableExternalParsers)

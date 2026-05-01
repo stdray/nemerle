@@ -183,8 +183,88 @@ Task("Stage1")
         throw new Exception($"ncc-core build failed with exit code {exitCode}");
 
     CopyFile($"{nccBoot}/dnlib.dll", $"bin/{configuration}/dnlib.dll");
+    CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"bin/{configuration}/System.Security.Permissions.dll");
     Information("=== Stage 1 complete! ===");
 });
+
+Task("Test")
+    .IsDependentOn("Stage1")
+    .Does(() =>
+{
+    Information("=== Running tests ===");
+
+    var nccExe = $"bin/{configuration}/ncc-core.exe";
+    var nccRt = FindNetCore21Runtime();
+    var baseRefs = new[] {
+        $"-r {nccRt}/System.Console.dll",
+        $"-r {nccRt}/System.Runtime.Extensions.dll",
+        $"-r {nccRt}/System.IO.FileSystem.dll",
+        $"-nowarn:10003"
+    };
+
+    var positiveDir = "testsuite/positive";
+    var negativeDir = "testsuite/negative";
+    var tmpDir = "testsuite/.tmp_test";
+    EnsureDirectoryExists(tmpDir);
+
+    int RunNcc(string file, string extraArgs, bool expectSuccess)
+    {
+        var outFile = $"{tmpDir}/{System.IO.Path.GetFileNameWithoutExtension(file)}";
+        outFile += (extraArgs.Contains("-t:exe") ? ".exe" : ".dll");
+        var args = $"\"{nccExe}\" \"{file}\" {string.Join(" ", baseRefs)} {extraArgs} -o \"{outFile}\"";
+        var exitCode = StartProcess("dotnet", args);
+        var ok = expectSuccess ? exitCode == 0 : exitCode != 0;
+        if (!ok)
+            Error($"  FAIL: {file} (exit={exitCode}, expected={(expectSuccess ? "success" : "failure")})");
+        return ok ? 1 : 0;
+    }
+
+    // --- Positive tests ---
+    Information($"  Positive tests ({positiveDir}):");
+    var posFiles = System.IO.Directory.GetFiles(positiveDir, "*.n");
+    var posPassed = 0;
+    var posFailed = 0;
+    foreach (var file in posFiles)
+    {
+        var extra = "-t:library";
+        // Some tests produce executables with expected output
+        var content = System.IO.File.ReadAllText(file);
+        if (content.Contains("Main()") && content.Contains("BEGIN-OUTPUT"))
+            extra = "-t:exe";
+        if (RunNcc(file, extra, true) == 1)
+            posPassed++;
+        else
+            posFailed++;
+    }
+    Information($"  Positive: {posPassed} passed, {posFailed} failed, {posFiles.Length} total");
+
+    // --- Negative tests ---
+    Information($"  Negative tests ({negativeDir}):");
+    var negFiles = System.IO.Directory.GetFiles(negativeDir, "*.n");
+    var negPassed = 0;
+    var negFailed = 0;
+    foreach (var file in negFiles)
+    {
+        if (RunNcc(file, "-t:library", false) == 1)
+            negPassed++;
+        else
+            negFailed++;
+    }
+    Information($"  Negative: {negPassed} passed, {negFailed} failed, {negFiles.Length} total");
+
+    // Summary
+    var totalPassed = posPassed + negPassed;
+    var totalFailed = posFailed + negFailed;
+    var total = posFiles.Length + negFiles.Length;
+    Information($"=== Test summary: {totalPassed}/{total} passed, {totalFailed} failed ===");
+
+    if (totalFailed > 0)
+        throw new Exception($"{totalFailed} test(s) failed");
+
+    // Cleanup
+    DeleteDirectory(tmpDir, new DeleteDirectorySettings { Recursive = true });
+});
+
 
 Task("Default")
     .IsDependentOn("Stage1");
