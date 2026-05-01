@@ -113,14 +113,56 @@ Task("Clean")
     .Does(() =>
 {
     Information("Cleaning all build artifacts...");
+
+    // Build outputs
     foreach (var dir in new[] { "bin", "obj" })
         if (DirectoryExists(dir))
         {
             DeleteDirectory(dir, new DeleteDirectorySettings { Recursive = true });
             Information($"  Deleted {dir}/");
         }
+
+    // Test compiled files
+    foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
+        foreach (var ext in new[] { "*.exe", "*.dll", "*.runtimeconfig.json", "*.pdb", "*.netmodule" })
+            foreach (var f in System.IO.Directory.GetFiles(dir, ext))
+            {
+                System.IO.File.Delete(f);
+                Verbose($"  Deleted {f}");
+            }
+
+    // Test temp + generated source files
+    var testDirs = new[] { "testsuite/.tmp_test" };
+    foreach (var d in testDirs)
+        if (DirectoryExists(d))
+        {
+            DeleteDirectory(d, new DeleteDirectorySettings { Recursive = true });
+            Information($"  Deleted {d}/");
+        }
+
+    // Generated Nemerle sources in testsuite
+    foreach (var f in System.IO.Directory.GetFiles("testsuite/positive", "_N_GeneratedSource_*.n"))
+    { System.IO.File.Delete(f); Verbose($"  Deleted {f}"); }
+    foreach (var f in System.IO.Directory.GetFiles("testsuite/negative", "_N_GeneratedSource_*.n"))
+    { System.IO.File.Delete(f); Verbose($"  Deleted {f}"); }
+
+    // Test runner output
+    if (DirectoryExists(testRunnerOut))
+    {
+        DeleteDirectory(testRunnerOut, new DeleteDirectorySettings { Recursive = true });
+        Information($"  Deleted {testRunnerOut}/");
+    }
+
+    // Shim temp
+    if (DirectoryExists("tmp_shim"))
+    {
+        DeleteDirectory("tmp_shim", new DeleteDirectorySettings { Recursive = true });
+        Information("  Deleted tmp_shim/");
+    }
+
     Information("Clean completed.");
 });
+
 
 Task("FixBoot")
     .IsDependentOn("Clean")
