@@ -562,15 +562,12 @@ namespace Nemerle.Compiler
         {
           forceInitNemerleTypes                    = true;
           LibrariesManager.AssemblyResolver.UseGAC = true;
-          // Load ALL assemblies from the .NET Core shared framework
-          // (equivalent to MSBuild's ResolveFrameworkReferences in C#/F#).
-          def fxDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
-          foreach (dll in System.IO.Directory.GetFiles(fxDir, "*.dll"))
-            try { LibrariesManager.AddLibrary(dll, isUserReference=false); }
-            catch { | _ => () }
-        }
           def load(type) { LibrariesManager.AddLibrary(type.Assembly.Location, isUserReference=false); }
+          load(typeof(object));                    // mscorlib
+          load(typeof(System.Uri));                // System
+          load(typeof(System.Xml.XmlNode));        // System.Xml
           load(typeof(Nemerle.Collections.NList)); // Nemerle
+        }
 
         unless(Options.DisableExternalParsers)
           tryEx(() =>
