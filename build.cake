@@ -324,8 +324,13 @@ Task("Test")
         foreach (var rt in System.IO.Directory.GetFiles(dir, "*.runtimeconfig.json"))
             CopyFile(rt, System.IO.Path.Combine(targetDir, System.IO.Path.GetFileName(rt)));
     }
-    // Copy Nemerle runtime DLLs so compiled test EXEs can resolve them
-    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll" }) {
+    var runtimeDlls = new[] {
+        "Nemerle.dll",
+        "Nemerle.Compiler.dll",
+        "Nemerle.Macros.dll",
+        "dnlib.dll"
+    };
+    foreach (var dll in runtimeDlls) {
         CopyFile($"{testOut}/{dll}", System.IO.Path.Combine(posOut, dll));
         CopyFile($"{testOut}/{dll}", System.IO.Path.Combine(negOut, dll));
     }
@@ -346,11 +351,16 @@ Task("Test")
         "-reference System.Linq.Expressions",
         "-reference System.ComponentModel.Primitives",
         "-reference System.Data",
+        "-reference System.Data.Common",
+        "-reference System.Data.DataSetExtensions",
+        "-reference System.Web",
         "-reference System.Net.Primitives",
+        "-reference System.Net.NameResolution",
         "-reference System.Linq.Queryable",
         "-reference System.Collections.NonGeneric",
         "-reference System.ComponentModel.TypeConverter",
-        "-reference System.ObjectModel");
+        "-reference System.ObjectModel",
+        "-reference dnlib");
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
         posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""testsuite/positive/*.n"" > {posLog} 2>&1");
     });

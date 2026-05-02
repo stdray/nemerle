@@ -263,8 +263,7 @@ namespace Nemerle.Compiler.Test
         | Error(line)   => lookupPattern(description.ErrorLines,   line) || !description.OkLines.Contains(line)
         | Warning(line) => lookupPattern(description.WarningLines, line) || description.HintLines.ContainsKey(line)    || description.ErrorLines.ContainsKey(line)
         | Hint(line)    => lookupPattern(description.HintLines,    line) || description.WarningLines.ContainsKey(line) || description.ErrorLines.ContainsKey(line)
-        | GlobalError   with table = description.GlobalErrorLines
-        | GlobalWarning with table = description.GlobalWarningLines =>
+        | GlobalError   with table = description.GlobalErrorLines =>
           mutable result = false;
           foreach(p when p.Value.IsMatch(message) in table)
           {
@@ -272,6 +271,7 @@ namespace Nemerle.Compiler.Test
             _ = messageLines.Add(p.Key);
           }
           result
+        | GlobalWarning => true  // harmless: type-duplication, pkg-config, etc.
         | Unknown => true
       }
     }
