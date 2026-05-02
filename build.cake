@@ -312,10 +312,11 @@ Task("Stage2")
     var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
     EnsureDirectoryExists(stage2Out);
 
-    // Nemerle.dll: compiler IS Nemerle, only need framework refs
+    // Nemerle.dll: compiler IS Nemerle, only need framework refs + -nostdlib
+    // (-nostdlib prevents loading Nemerle.dll as ref, compiler uses internal types)
     var libSrc = string.Join(" ",
         System.IO.Directory.GetFiles("lib", "*.n").Select(f => $"\"{f}\""));
-    Ncc(tool, libSrc, fwRefs, "library", $"{stage2Out}/Nemerle.dll");
+    StartProcess("dotnet", $"\"{tool}\" -nostdlib {libSrc} -t library -o \"{stage2Out}/Nemerle.dll\" {fwRefs}");
     Information("    Nemerle.dll");
 
     var compSrc = string.Join(" ",
