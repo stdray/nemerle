@@ -1,4 +1,4 @@
-﻿using Nemerle;
+using Nemerle;
 using Nemerle.Assertions;
 using Nemerle.Collections;
 using Nemerle.Imperative;
@@ -63,6 +63,9 @@ namespace Nemerle.Compiler.Test
       _referenceResolutionPaths.Add(_outputDirectory);
       _referenceResolutionPaths.Add(AppDomain.CurrentDomain.BaseDirectory);
       _referenceResolutionPaths.Add(Environment.CurrentDirectory);
+      // Add .NET shared framework directory for resolving System.Console etc.
+      _referenceResolutionPaths.Add(
+        System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location));
     }
 
     public override Name : string { get { _name } }

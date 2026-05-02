@@ -160,7 +160,7 @@ Task("BuildTests")
     DotNetBuildOne("snippets/Nemerle.Test/Nemerle.Compiler.Test/Nemerle.Compiler.Test.nproj", absS1Out, testOut, "obj/Tests/CT");
     DotNetBuildOne("Linq/Macro/Linq.nproj", absS1Out, $"{testOut}/Linq", "obj/Tests/Linq");
     DotNetBuildOne("snippets/Nemerle.Unsafe/Nemerle.Unsafe/Nemerle.Unsafe.nproj", absS1Out, $"{testOut}/Unsafe", "obj/Tests/Unsafe");
-    WriteRuntimeConfig($"{testOut}/Nemerle.Compiler.Test.runtimeconfig.json", "2.1.0", "LatestPatch");
+    WriteRuntimeConfig($"{testOut}/Nemerle.Compiler.Test.runtimeconfig.json", "8.0", "LatestMajor");
 });
 
 Task("Stage2")
@@ -308,11 +308,52 @@ Task("Test")
     foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
         foreach (var f in System.IO.Directory.GetFiles(dir, "*.n"))
             if (System.IO.File.ReadAllText(f).Contains("BEGIN-OUTPUT"))
-                System.IO.File.WriteAllText(System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"), RuntimeConfig("2.1.0", "LatestPatch"));
+            { var rt = System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"); System.IO.File.WriteAllText(rt, RuntimeConfig("8.0", "LatestMajor")); }
     CopyFile($"{testOut}/Linq/Nemerle.Linq.dll", $"{testOut}/Nemerle.Linq.dll");
     CopyFile($"{testOut}/Unsafe/Nemerle.Unsafe.dll", $"{testOut}/Nemerle.Unsafe.dll");
-    StartProcess("dotnet", $@"""{testOut}/Nemerle.Compiler.Test.dll"" -output:{testOut}/results -p ""-nowarn:10003"" ""testsuite/positive/*.n""");
-    StartProcess("dotnet", $@"""{testOut}/Nemerle.Compiler.Test.dll"" -output:{testOut}/results -p ""-nowarn:10003"" ""testsuite/negative/*.n""");
+
+    // Run positive and negative in parallel with separate output dirs
+    var posOut = $"{testOut}/results-pos";
+    var negOut = $"{testOut}/results-neg";
+    EnsureDirectoryExists(posOut);
+    EnsureDirectoryExists(negOut);
+
+    // Copy runtimeconfig.json for EXE tests to output dirs
+    foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" }) {
+        var targetDir = dir.Contains("positive") ? posOut : negOut;
+        foreach (var rt in System.IO.Directory.GetFiles(dir, "*.runtimeconfig.json"))
+            CopyFile(rt, System.IO.Path.Combine(targetDir, System.IO.Path.GetFileName(rt)));
+    }
+    // Copy Nemerle runtime DLLs so compiled test EXEs can resolve them
+    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll" }) {
+        CopyFile($"{testOut}/{dll}", System.IO.Path.Combine(posOut, dll));
+        CopyFile($"{testOut}/{dll}", System.IO.Path.Combine(negOut, dll));
+    }
+
+
+    var tasks = new System.Threading.Tasks.Task[2];
+    int posExit = 0, negExit = 0;
+    var posLog = $"{testOut}/test-positive.log";
+    var negLog = $"{testOut}/test-negative.log";
+    var refs = "-reference System.Console -reference System.Runtime -reference System.Collections -reference System.IO.FileSystem -reference System.Threading.Thread -reference System.Linq -reference System.Text.RegularExpressions -reference System.Linq.Expressions -reference System.ComponentModel.Primitives";
+    tasks[0] = System.Threading.Tasks.Task.Run(() => {
+        posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""testsuite/positive/*.n"" > {posLog} 2>&1");
+    });
+    tasks[1] = System.Threading.Tasks.Task.Run(() => {
+        negExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{negOut} {refs} -p ""-nowarn:10003"" ""testsuite/negative/*.n"" > {negLog} 2>&1");
+    });
+    System.Threading.Tasks.Task.WaitAll(tasks);
+    Information($"  Test logs: {posLog}, {negLog}");
+
+    // Print summaries
+    foreach (var log in new[] { (posLog, "POSITIVE"), (negLog, "NEGATIVE") }) {
+        var lines = System.IO.File.ReadAllLines(log.Item1);
+        var last = lines[lines.Length-1];
+        Information($"  {log.Item2}: {last}");
+    }
+
+    if (posExit != 0) throw new Exception($"Positive tests FAILED (exit {posExit})");
+    if (negExit != 0) throw new Exception($"Negative tests FAILED (exit {negExit})");
 });
 
 Task("ReplaceBootstrap")
