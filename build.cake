@@ -335,7 +335,22 @@ Task("Test")
     int posExit = 0, negExit = 0;
     var posLog = $"{testOut}/test-positive.log";
     var negLog = $"{testOut}/test-negative.log";
-    var refs = "-reference System.Console -reference System.Runtime -reference System.Collections -reference System.IO.FileSystem -reference System.Threading.Thread -reference System.Linq -reference System.Text.RegularExpressions -reference System.Linq.Expressions -reference System.ComponentModel.Primitives";
+    var refs = string.Join(" ",
+        "-reference System.Console",
+        "-reference System.Runtime",
+        "-reference System.Collections",
+        "-reference System.IO.FileSystem",
+        "-reference System.Threading.Thread",
+        "-reference System.Linq",
+        "-reference System.Text.RegularExpressions",
+        "-reference System.Linq.Expressions",
+        "-reference System.ComponentModel.Primitives",
+        "-reference System.Data",
+        "-reference System.Net.Primitives",
+        "-reference System.Linq.Queryable",
+        "-reference System.Collections.NonGeneric",
+        "-reference System.ComponentModel.TypeConverter",
+        "-reference System.ObjectModel");
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
         posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""testsuite/positive/*.n"" > {posLog} 2>&1");
     });
