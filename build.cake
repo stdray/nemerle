@@ -307,7 +307,7 @@ Task("Stage2")
 {
     var nccRt = FindNetCore21Runtime();
     var tool  = $"{stage1Out}/ncc-core.exe";  // Stage 1 → Stage 2
-    var refs  = AllRefs(stage1Out, nccRt);     // original working approach
+    var refs  = AllRefsNoBase(stage1Out, nccRt);
     EnsureDirectoryExists(stage2Out);
 
     var libSrc = string.Join(" ",
@@ -328,8 +328,8 @@ Task("Stage2")
     Information("    Nemerle.Macros.dll");
 
     Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n", refs, "exe", $"{stage2Out}/ncc-core.exe");
-    Information("    ncc-core.exe");
 
+    Information("    ncc-core.exe");
     CopyFile($"{stage1Out}/dnlib.dll", $"{stage2Out}/dnlib.dll");
     CopyFile($"{stage1Out}/System.Security.Permissions.dll", $"{stage2Out}/System.Security.Permissions.dll");
     WriteRuntimeConfig($"{stage2Out}/ncc-core.runtimeconfig.json");
@@ -395,7 +395,7 @@ Task("Test")
             }
     Information($"  Generated {rtCount} runtimeconfig.json files");
 
-    var testExe = $"{testRunnerOut}/Nemerle.Compiler.Test.dll";
+    var testExe = System.IO.Path.GetFullPath($"{testRunnerOut}/Nemerle.Compiler.Test.dll");
 
     foreach (var (label, dir) in new[] { ("Positive", "testsuite/positive"), ("Negative", "testsuite/negative") })
     {
