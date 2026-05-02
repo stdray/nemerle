@@ -310,7 +310,7 @@ Task("Stage2")
 
     var nccRt = FindNetCore21Runtime();
     var tool  = $"{stage1Out}/ncc-core.exe";  // Stage 1 → Stage 2
-    var refs  = AllRefs(stage1Out, nccRt);
+    var refs  = AllRefsNoBase(stage1Out, nccRt);
     EnsureDirectoryExists(stage2Out);
 
     Ncc(tool, "lib/*.n", refs, "library", $"{stage2Out}/Nemerle.dll");
@@ -401,8 +401,11 @@ Task("Test")
         var files = string.Join(" ",
             System.IO.Directory.GetFiles(dir, "*.n").Select(f => $"\"{f}\""));
         Information($"  {label}: {System.IO.Directory.GetFiles(dir, "*.n").Length} tests...");
-        StartProcess("dotnet",
-            $"\"{testExe}\" {files} -r dotnet -p \"-nowarn:10003\" {refArgs}");
+        var settings = new ProcessSettings {
+            Arguments = $"\"{testExe}\" {files} -r dotnet -p \"-nowarn:10003\" {refArgs}",
+            WorkingDirectory = dir  // avoid multi-project-file conflict
+        };
+        StartProcess("dotnet", settings);
     }
 
     Information("=== Tests complete ===");
