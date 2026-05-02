@@ -217,21 +217,31 @@ Task("Stage1")
 {
     Information("=== STAGE 1: Building with boot compiler ===");
 
-    void BuildNproj(string nproj)
+    var baseMs = new DotNetMSBuildSettings();
+    baseMs.SetConfiguration(configuration);
+    baseMs.WithProperty("Nemerle", nccBoot);
+
+    // Build each nproj with its own IntermediateOutputPath to avoid shared obj/
+    foreach (var nproj in new[] { "Nemerle.nproj", "Nemerle.Compiler.nproj", "Nemerle.Macros.nproj" })
     {
-        Information($"  Building {nproj}...");
-        DotNetRestore(nproj, new DotNetRestoreSettings {
-            ArgumentCustomization = args => args.Append($"/p:Nemerle={nccBoot}")
-        });
+        var name = System.IO.Path.GetFileNameWithoutExtension(nproj);
+        var intPath = $"obj/{name}";
+        Information($"  Building {nproj} (IntermediateOutputPath={intPath})...");
+
         var ms = new DotNetMSBuildSettings();
         ms.SetConfiguration(configuration);
         ms.WithProperty("Nemerle", nccBoot);
+        ms.WithProperty("IntermediateOutputPath", intPath + "/");
+        ms.WithProperty("BaseIntermediateOutputPath", intPath + "/");
+
+        DotNetRestore(nproj, new DotNetRestoreSettings {
+            ArgumentCustomization = args => args
+                .Append($"/p:Nemerle={nccBoot}")
+                .Append($"/p:IntermediateOutputPath={intPath}/")
+                .Append($"/p:BaseIntermediateOutputPath={intPath}/")
+        });
         DotNetBuild(nproj, new DotNetBuildSettings { MSBuildSettings = ms });
     }
-
-    BuildNproj("Nemerle.nproj");
-    BuildNproj("Nemerle.Compiler.nproj");
-    BuildNproj("Nemerle.Macros.nproj");
 
     // ncc-core: direct ncc invocation (MSBuild can't handle netcoreapp2.1 TF)
     Information("  Building ncc-core.exe...");
