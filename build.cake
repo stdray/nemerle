@@ -6,6 +6,8 @@ var configuration = Argument("configuration", "Release");
 var nccBoot       = Argument("nccBoot", "boot-dnlib");
 var netCoreVersion = Argument("netCoreVersion", "8.0");
 
+var testFilter    = Argument("testFilter", "");
+
 //////////////////////////////////////////////////////////////////////
 // CONSTANTS
 //////////////////////////////////////////////////////////////////////
@@ -312,11 +314,27 @@ Task("Test")
     CopyFile($"{testOut}/Linq/Nemerle.Linq.dll", $"{testOut}/Nemerle.Linq.dll");
     CopyFile($"{testOut}/Unsafe/Nemerle.Unsafe.dll", $"{testOut}/Nemerle.Unsafe.dll");
 
+    // Pull System.CodeDom via NuGet for codedom.n test
+    var codeDomDll = $"{testOut}/System.CodeDom.dll";
+    if (!FileExists(codeDomDll)) {
+        NuGetInstall("System.CodeDom", new NuGetInstallSettings {
+            Version = "8.0.0",
+            OutputDirectory = testOut,
+            NoCache = true
+        });
+        CopyFile(
+            $"{testOut}/System.CodeDom.8.0.0/lib/netstandard2.0/System.CodeDom.dll",
+            codeDomDll);
+    }
     // Run positive and negative in parallel with separate output dirs
     var posOut = $"{testOut}/results-pos";
     var negOut = $"{testOut}/results-neg";
     EnsureDirectoryExists(posOut);
     EnsureDirectoryExists(negOut);
+
+    // Copy pulled NuGet DLLs to test output dirs
+    CopyFile(codeDomDll, System.IO.Path.Combine(posOut, "System.CodeDom.dll"));
+    CopyFile(codeDomDll, System.IO.Path.Combine(negOut, "System.CodeDom.dll"));
 
     // Copy runtimeconfig.json for EXE tests to output dirs
     foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" }) {
@@ -361,11 +379,13 @@ Task("Test")
         "-reference System.ComponentModel.TypeConverter",
         "-reference System.ObjectModel",
         "-reference dnlib");
+    var posGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/positive/*.n" : testFilter;
+    var negGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/negative/*.n" : testFilter;
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
-        posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""testsuite/positive/*.n"" > {posLog} 2>&1");
+        posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""{posGlob}"" > {posLog} 2>&1");
     });
     tasks[1] = System.Threading.Tasks.Task.Run(() => {
-        negExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{negOut} {refs} -p ""-nowarn:10003"" ""testsuite/negative/*.n"" > {negLog} 2>&1");
+        negExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{negOut} {refs} -p ""-nowarn:10003"" ""{negGlob}"" > {negLog} 2>&1");
     });
     System.Threading.Tasks.Task.WaitAll(tasks);
     Information($"  Test logs: {posLog}, {negLog}");
