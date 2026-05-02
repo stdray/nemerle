@@ -246,17 +246,13 @@ Task("Stage1")
     // ncc-core: direct ncc invocation (MSBuild can't handle netcoreapp2.1 TF)
     Information("  Building ncc-core.exe...");
     var nccRt = FindNetCore21Runtime();
-    // Use Stage 1 just-built DLLs (not boot-dnlib) so version refs match at runtime
-    // Exclude Nemerle.dll (boot compiler has it loaded)
-    var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
-    var st1Refs = $"-r \"{stage1Out}/Nemerle.Compiler.dll\" -r \"{stage1Out}/Nemerle.Macros.dll\" -r \"{nccBoot}/System.Security.Permissions.dll\"";
     var exitCode = Ncc($"{nccBoot}/ncc.exe",
         "ncc/main.n ncc/shared/AssemblyInfo.n",
-        $"{st1Refs} {fwRefs}",
+        AllRefsNoBase(nccBoot, nccRt),
         "exe", $"{stage1Out}/ncc-core.exe");
-    CopyFile($"{nccBoot}/dnlib.dll", $"{stage1Out}/dnlib.dll");
     if (exitCode != 0)
         throw new Exception($"ncc-core build failed with exit code {exitCode}");
+    CopyFile($"{nccBoot}/dnlib.dll", $"{stage1Out}/dnlib.dll");
     CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{stage1Out}/System.Security.Permissions.dll");
     WriteRuntimeConfig($"{stage1Out}/ncc-core.runtimeconfig.json");
     Information("=== Stage 1 complete! ===");
