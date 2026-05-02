@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -10,12 +10,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nemerle.Compiler.Test</RootNamespace>
     <AssemblyName>Nemerle.Compiler.Test</AssemblyName>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <FileAlignment>512</FileAlignment>
     <NoStdLib>true</NoStdLib>
-    <NemerleVersion>Net-4.0</NemerleVersion>
-    <NemerleBinPathRoot Condition=" '$(NemerleBinPathRoot)' == '' ">$(ProgramFiles)\Nemerle</NemerleBinPathRoot>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(NemerleBinPathRoot)\$(NemerleVersion)</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
     <Name>Nemerle.Compiler.Test</Name>
     <KeyOriginatorFile Condition="'$(NKeysDir)' == ''">..\..\..\misc\keys\Nemerle.Compiler.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition="'$(NKeysDir)' != ''">$(NKeysDir)\Nemerle.Compiler.snk</KeyOriginatorFile>
@@ -42,8 +40,6 @@
   </PropertyGroup>
   <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
   <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
     <Reference Include="Nemerle">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>$(Nemerle)\Nemerle.dll</HintPath>

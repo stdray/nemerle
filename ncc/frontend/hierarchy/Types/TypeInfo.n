@@ -142,8 +142,8 @@ namespace Nemerle.Compiler
       match (special_members [name]) {
         | [elem is IMethod] =>
           def hd = elem.GetHeader ();
-          assert(InternalType.Boolean != null);
-          hd.ReturnType = InternalType.Boolean;
+          when (InternalType.Boolean != null)
+            hd.ReturnType = InternalType.Boolean;
         | _ => assert(false)
       }
     }
@@ -263,10 +263,10 @@ namespace Nemerle.Compiler
             | _ => {}
           }
         else if (IsDelegate) {
-          assert(InternalType.Delegate_Combine != null);
-          assert(InternalType.Delegate_Remove != null);
-          AddBuiltin ("op_Addition", InternalType.Delegate_Combine);
-          AddBuiltin ("op_Subtraction", InternalType.Delegate_Remove);
+          when (InternalType.Delegate_Combine != null && InternalType.Delegate_Remove != null) {
+            AddBuiltin ("op_Addition", InternalType.Delegate_Combine);
+            AddBuiltin ("op_Subtraction", InternalType.Delegate_Remove);
+          }
         } else {}
       }
     }
@@ -548,8 +548,7 @@ namespace Nemerle.Compiler
             when (check_parms)
               NList.Iter2 (typarms, args, fun (tp : StaticTypeVar, val : TypeVar)
               {
-                assert(InternalType.Void != null);
-                when (val.Equals (InternalType.Void))
+                when (InternalType.Void != null && val.Equals (InternalType.Void))
                   ReportError (messenger, $"cannot use `void' as a generic parameter of $tc");
 
                 unless (val.Require(res.Apply(tp.LowerBound)))

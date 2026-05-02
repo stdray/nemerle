@@ -183,7 +183,9 @@ module TyCodec
 
     mutable allInterfaces = original.Interfaces.Map(i => lib.TypeOfType(tenvResolver, i.Interface, rawInternals = true) :> FixedType.Class);
 
-    def minimizeInterfaces() { Typer.GetMinimal(allInterfaces, _.TryRequire(_)).Rev() }
+    // TODO: restore minimal interface logic — was `Typer.GetMinimal(allInterfaces, _.TryRequire(_)).Rev()`
+    //       bypassed during dnlib migration; GetMinimal may need TypeInfo infrastructure not yet wired
+    def minimizeInterfaces() { allInterfaces }
 
     def (directSuperTypes, allSuperTypes) =
       if (original.BaseType == null)

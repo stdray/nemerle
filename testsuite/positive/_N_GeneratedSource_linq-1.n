@@ -1,0 +1,128 @@
+﻿// Order
+protected virtual EqualsImpl(other : Order.[]) : bool
+{
+  _  = other;
+  match (other)
+    {
+    | null => 
+      false
+    | _  => 
+      EqualityComparer.Default.Equals(this.Details, other.Details) && this._orderID == other._orderID && true
+  }
+}
+
+// Order
+public Equals(other : Order.[]) : bool
+{
+  EqualsImpl(other)
+}
+
+// Order
+public override Equals(other : System.Object) : boolmatch (other)
+{
+  | (x is Order.[]) => 
+    EqualsImpl(x)
+  | _  => 
+    false
+}
+
+// Order
+public override GetHashCode() : int
+{
+  unchecked 
+  {
+    mutable (hash : int);
+    
+    {
+      
+      {
+        hash += _orderID;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += this.Details ?. GetHashCode();
+        hash += hash << 10;
+        hash ^= hash >> 6
+      }
+    };
+    ();
+    ();
+    hash
+  }
+}
+
+// Detail
+protected virtual EqualsImpl(other : Detail.[]) : bool
+{
+  _  = other;
+  match (other)
+    {
+    | null => 
+      false
+    | _  => 
+      string.Equals(this._text, other._text) && this._quantity == other._quantity && this._unitPrice == other._unitPrice && this._productID == other._productID && this._orderID == other._orderID && true
+  }
+}
+
+// Detail
+public Equals(other : Detail.[]) : bool
+{
+  EqualsImpl(other)
+}
+
+// Detail
+public override Equals(other : System.Object) : boolmatch (other)
+{
+  | (x is Detail.[]) => 
+    EqualsImpl(x)
+  | _  => 
+    false
+}
+
+// Detail
+public override GetHashCode() : int
+{
+  unchecked 
+  {
+    mutable (hash : int);
+    
+    {
+      
+      {
+        hash += _orderID;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += _productID;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += this._unitPrice.GetHashCode();
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += _quantity;
+        hash += hash << 10;
+        hash ^= hash >> 6
+      };
+      
+      {
+        hash += this._text ?. GetHashCode();
+        hash += hash << 10;
+        hash ^= hash >> 6
+      }
+    };
+    ();
+    ();
+    hash
+  }
+}
+

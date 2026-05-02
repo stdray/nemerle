@@ -351,7 +351,8 @@ namespace Nemerle.Compiler
 
     private is_security_attribute(ti : TypeInfo) : bool
     {
-      Manager.InternalType.SecurityAttribute_tc.GetMemType().TryProvide(ti.GetMemType());
+      ti.FullName == "System.Security.Permissions.SecurityAttribute"
+      || (ti.BaseType != null && is_security_attribute(ti.BaseType))
     }
 
     private compile_expr(env : GlobalEnv, expr : PT.PExpr, typer : Typer, mutable expected : TypeVar = null) : object * FixedType

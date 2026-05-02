@@ -342,9 +342,7 @@
       <_NonMacroReferencePath Include="@(ReferencePath)" Condition="%(ReferencePath.OutputItemType) != 'macro'" />
       <_MacroProjectReferencePath Include="@(ReferencePath)" Condition="%(ReferencePath.OutputItemType) == 'macro'" />
     </ItemGroup>
-    <ItemGroup>
-      <_ImplicitNemerleReference Include="$(Nemerle)\System.Security.Permissions.dll" />
-    </ItemGroup>
+
     <Ncc
         AdditionalLibPaths="$(AdditionalLibPaths)"
         CheckIntegerOverflow="$(CheckIntegerOverflow)"
@@ -365,8 +363,8 @@
         Optimize="$(Optimize)"
         OutputAssembly="@(IntermediateAssembly)"
         Platform="$(PlatformTarget)"
-        ProjectPath="$(MSBuildProjectFullPath)"
-        References="@(_NonMacroReferencePath);@(_ImplicitNemerleReference)"
+        References="@(_NonMacroReferencePath)"
+
         Resources="@(ManifestResourceWithNoCulture);@(ManifestNonResxWithNoCultureOnDisk);@(CompiledLicenseFile)"
         ResponseFiles="$(CompilerResponseFile)"
         RootNamespace="$(RootNamespace)"

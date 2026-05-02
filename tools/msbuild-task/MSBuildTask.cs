@@ -92,40 +92,75 @@ namespace Nemerle.Tools.MSBuildTask
         [Output]
         public ITaskItem OutputAssembly { get; set; }
 
+        private string _cachedNccPath;
+        private bool _nccPathResolved;
+
+        private string ResolveNccPath()
+        {
+            if (_nccPathResolved) return _cachedNccPath;
+            _nccPathResolved = true;
+
+            // Look for ncc-core.dll (new style: dotnet ncc-core.dll), then ncc.exe
+            foreach (var name in new[] { "ncc-core.exe", "ncc-core.dll", "ncc.exe" })
+            {
+                if (!string.IsNullOrEmpty(CompilerPath))
+                {
+                    var path = Path.Combine(CompilerPath, name);
+                    if (File.Exists(path)) { _cachedNccPath = path; return path; }
+                }
+
+                var myFile = new Uri(typeof(Ncc).Assembly.Location).LocalPath;
+                var myDir = Path.GetDirectoryName(myFile);
+                var nccFile = Path.Combine(myDir, name);
+                if (File.Exists(nccFile)) { _cachedNccPath = nccFile; return nccFile; }
+            }
+            return _cachedNccPath; // null
+        }
+
         protected override string ToolName
         {
             get
             {
-#if MONO
-                return Environment.OSVersion.VersionString.Contains("Windows") ? "ncc.bat" : "ncc";
-#else
+                var ncc = ResolveNccPath();
+                if (ncc != null && ncc.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                    return "dotnet";
+                if (ncc != null && ncc.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    return System.IO.Path.GetFileName(ncc);
                 return "ncc.exe";
-#endif
             }
+        }
+
+        protected override string GenerateFullPathToTool()
+        {
+            var ncc = ResolveNccPath();
+            if (ncc != null && ncc.EndsWith(".dll"))
+            {
+                // Use dotnet to run ncc-core.dll
+                var dotnetPath = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+                if (string.IsNullOrEmpty(dotnetPath))
+                    dotnetPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
+                var dotnetExe = Path.Combine(dotnetPath, "dotnet.exe");
+                if (File.Exists(dotnetExe)) return dotnetExe;
+                return FindExecutable("dotnet.exe") ?? "dotnet";
+            }
+            // ncc-core.exe — direct launch (no dotnet wrapper)
+            if (ncc != null && ncc.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                return ncc;
+            // Old style: ncc.exe directly
+            return ncc ?? FindExecutable("ncc.exe");
+        }
+
+        protected override string GenerateCommandLineCommands()
+        {
+            var ncc = ResolveNccPath();
+            if (ncc != null && ncc.EndsWith(".dll"))
+                return "\"" + ncc + "\"";
+            return "";
         }
 
         private string FindExecutable(string toolName)
         {
-            if (!string.IsNullOrEmpty(CompilerPath))
-            {
-                var path = Path.Combine(CompilerPath, toolName);
-
-                if (File.Exists(path))
-                    return path;
-            }
-
-            var my_file = new Uri(typeof(Ncc).Assembly.Location).LocalPath;
-            var ncc_file = Path.Combine(Path.GetDirectoryName(my_file), toolName);
-
-            if (File.Exists(ncc_file))
-            {
-                // The tool found in the same folder.
-                //
-                return ncc_file;
-            }
-
-            // Try to find the tool in the PATH environment variable
-            //
             var pathEnv = Environment.GetEnvironmentVariable("PATH");
             if (!string.IsNullOrEmpty(pathEnv))
             {
@@ -136,18 +171,9 @@ namespace Nemerle.Tools.MSBuildTask
                         return candidate;
                 }
             }
-
-
-            // Return the tool name itself.
-            // The environment will search common paths for the tool.
-            //
             return toolName;
         }
 
-        protected override string GenerateFullPathToTool()
-        {
-            return FindExecutable(ToolName);
-        }
 
         protected override string GenerateResponseFileCommands()
         {
@@ -319,45 +345,52 @@ namespace Nemerle.Tools.MSBuildTask
                 }
                 else
                 {
-                    // Try old nemerle format...
-                    var str = text.Substring(0, tagPos);
-                    if (str.IndexOfAny(_invalidPathChars) >= 0)
-                        return new Location();
-                    // Path can contain ':'. We should skip it...
-                    var dir = str.StartsWith(":") ? "" : Path.GetDirectoryName(str);
-                    // Find first location separator (it's a end of path)
-                    var locIndex = str.IndexOf(':', dir.Length);
-                    var path = (locIndex <= 0) ? dir : str.Substring(0, locIndex);
-                    var locStr = str.Substring(locIndex);
-                    var parts = locStr.Trim().Trim(':').Split(':');
-                    switch (parts.Length)
+                    try
                     {
-                        case 2:
-                            var line = int.Parse(parts[0]);
-                            var pos = int.Parse(parts[1]);
-                            return new Location
-                            {
-                                File = path,
-                                StartLine = line,
-                                StartPos = pos,
-                                EndLine = line,
-                                EndPos = pos + 1
-                            };
-                        case 4:
-                            return new Location
-                            {
-                                File = path,
-                                StartLine = int.Parse(parts[0]),
-                                StartPos = int.Parse(parts[1]),
-                                EndLine = int.Parse(parts[2]),
-                                EndPos = int.Parse(parts[3])
-                            };
-                        default:
-                            return new Location
-                            {
-                                File = path
-                            };
+                        // Try old nemerle format...
+                        var str = text.Substring(0, tagPos);
+                        if (string.IsNullOrEmpty(str))
+                            return new Location();
+                        if (str.IndexOfAny(_invalidPathChars) >= 0)
+                            return new Location();
+                        // Path can contain ':'. We should skip it...
+                        var dir = str.StartsWith(":") ? "" : (Path.GetDirectoryName(str) ?? "");
+                        // Find first location separator (it's a end of path)
+                        var locIndex = str.IndexOf(':', dir.Length);
+                        if (locIndex <= 0) return new Location();
+                        var path = str.Substring(0, locIndex);
+                        var locStr = str.Substring(locIndex);
+                        var parts = locStr.Trim().Trim(':').Split(':');
+                        switch (parts.Length)
+                        {
+                            case 2:
+                                var line = int.Parse(parts[0]);
+                                var pos = int.Parse(parts[1]);
+                                return new Location
+                                {
+                                    File = path,
+                                    StartLine = line,
+                                    StartPos = pos,
+                                    EndLine = line,
+                                    EndPos = pos + 1
+                                };
+                            case 4:
+                                return new Location
+                                {
+                                    File = path,
+                                    StartLine = int.Parse(parts[0]),
+                                    StartPos = int.Parse(parts[1]),
+                                    EndLine = int.Parse(parts[2]),
+                                    EndPos = int.Parse(parts[3])
+                                };
+                            default:
+                                return new Location
+                                {
+                                    File = path
+                                };
+                        }
                     }
+                    catch { return new Location(); }
                 }
             }
         }
@@ -391,7 +424,7 @@ namespace Nemerle.Tools.MSBuildTask
                     || TryReport(singleLine, "hint:")
                     || TryReport(singleLine, "hint :"))
                 {
-                  return;
+                    return;
                 }
 
                 Log.LogMessageFromText(singleLine, MessageImportance.High);

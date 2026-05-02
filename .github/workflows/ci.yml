@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [retarget-compiler]
+  pull_request:
+    branches: [retarget-compiler]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install tools
+        run: |
+          dotnet tool install -g Cake.Tool
+          dotnet tool install -g dotnet-ildasm
+
+      - name: Build + Validate + Test
+        run: dotnet-cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
+
+      - name: Show test summary
+        if: always()
+        run: |
+          echo "=== TEST RESULTS ==="
+          grep -E "[0-9]+ tests (passed|failed)" ci-output.txt || echo "No test summary found"
+          echo "=== INTERNAL ERRORS ==="
+          grep -c "internal compiler error" ci-output.txt || echo "0"
+
+      - name: Show validation
+        if: always()
+        run: |
+          grep -E "(IL (identical|MISMATCH)|Validate:)" ci-output.txt
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-output
+          path: ci-output.txt

@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
   <PropertyGroup>
     <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\boot-dnlib</Nemerle>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -11,9 +11,9 @@
     <NoStdLib>true</NoStdLib>
     <!--NoStdMacros>true</NoStdMacros-->
     <GreedyReferences>false</GreedyReferences>
-    <KeyOriginatorFile Condition="'$(NKeysDir)' == ''">misc\keys\Nemerle.Compiler.snk</KeyOriginatorFile>
-    <KeyOriginatorFile Condition="'$(NKeysDir)' != ''">$(NKeysDir)\Nemerle.Compiler.snk</KeyOriginatorFile>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+
+    <TargetFramework>net8.0</TargetFramework>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
   <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">

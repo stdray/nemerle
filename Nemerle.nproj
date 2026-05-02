@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
   <PropertyGroup>
     <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\boot-dnlib</Nemerle>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>

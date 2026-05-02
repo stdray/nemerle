@@ -1,0 +1,52 @@
+﻿// MyTemplateGroup
+public CreateInstance() : object
+{
+  MyTemplateGroup()
+}
+
+// MyTemplateGroup
+public IndxEntry__StImpl(entry : IndexEntry) : void 
+{
+}
+
+// MyTemplateGroup
+public Batch__StImpl(indexs : list[Index]) : void 
+{
+}
+
+// MyTemplateGroup
+public CreateIndex__StImpl(index : Index) : void 
+{
+}
+
+// MyTemplateGroup
+public ToString[_N_T_4424](value : _N_T_4424) : string
+{
+  value.ToString()
+}
+
+// MyTemplateGroup
+protected AddIndent(indent : string) : void 
+{
+  _indentLenStack.Add(indent.Length);
+  _indent += indent
+}
+
+// MyTemplateGroup
+protected RemoveLastIndent() : void 
+{
+  _indent = _indent.Substring(0, _indent.Length - _indentLenStack.Pop())
+}
+
+// MyTemplateGroup
+protected PrintNewLineAndIndent() : void 
+{
+  _  = _builder.Append(_indent)
+}
+
+// MyTemplateGroup
+public override ToString() : string
+{
+  _builder.ToString()
+}
+
