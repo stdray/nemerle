@@ -68,6 +68,15 @@ void DotNetBuildStage(string nemerleDir, string outputDir, string objPrefix, str
     }
 }
 
+string GetBootFrameworkVersion() {
+    var rt = $"{nccBoot}/ncc-core.runtimeconfig.json";
+    if (!FileExists(rt)) return netCoreVersion;
+    var json = System.IO.File.ReadAllText(rt);
+    var m = System.Text.RegularExpressions.Regex.Match(json, @"""version""\s*:\s*""([^""]+)""");
+    return m.Success ? m.Groups[1].Value : netCoreVersion;
+}
+
+
 //////////////////////////////////////////////////////////////////////
 // TASKS
 //////////////////////////////////////////////////////////////////////
@@ -136,22 +145,22 @@ Task("Stage1")
     Information("=== Stage 1 complete! ===");
 });
 
-Task("Stage1Net8")
+Task("PrepareStage1Sdk")
     .IsDependentOn("Stage1")
     .Does(() =>
 {
-    Information("=== PREPARE STAGE 1 SDK ===");
+    var bootVer = GetBootFrameworkVersion();
+    if (bootVer != netCoreVersion) {
+        Information($"=== PREPARE STAGE 1 SDK (boot {bootVer} -> {netCoreVersion}) ===");
+    }
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
         CopyFile($"tools/msbuild-task/{f}", $"{stage1Out}/{f}");
-    // Keep ncc-core runtimeconfig at 2.1 for Stage1→Stage2 bootstrap compatibility
-    // Stage1Net8: net8.0 build of Stage1 projects (tests, linq, unsafe) using net8.0 SDK
-    Information("=== Stage 1 SDK prepared ===");
 });
-Task("BuildTests")
-    .IsDependentOn("Stage1Net8")
+Task("BuildTestInfrastructure")
+    .IsDependentOn("PrepareStage1Sdk")
     .Does(() =>
 {
-    Information("=== BUILDING TESTS ===");
+    Information("=== BUILDING TEST INFRASTRUCTURE ===");
     var absS1Out = System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/');
     EnsureDirectoryExists(testOut);
     foreach (var dll in new[] { "Nemerle", "Nemerle.Compiler", "Nemerle.Macros" })
@@ -166,7 +175,7 @@ Task("BuildTests")
 });
 
 Task("Stage2")
-    .IsDependentOn("Stage1Net8")
+    .IsDependentOn("PrepareStage1Sdk")
     .Does(() =>
 {
     Information("=== STAGE 2 ===");
@@ -303,7 +312,7 @@ Task("Validate")
 });
 
 Task("Test")
-    .IsDependentOn("BuildTests")
+    .IsDependentOn("BuildTestInfrastructure")
     .Does(() =>
 {
     Information("=== RUNNING TESTS ===");
@@ -381,6 +390,8 @@ Task("Test")
         "-reference dnlib");
     var posGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/positive/*.n" : testFilter;
     var negGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/negative/*.n" : testFilter;
+    var tasks = new System.Threading.Tasks.Task[2];
+    int posExit = 0, negExit = 0;
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
         posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""{posGlob}"" > {posLog} 2>&1");
     });
@@ -390,17 +401,15 @@ Task("Test")
     System.Threading.Tasks.Task.WaitAll(tasks);
     Information($"  Test logs: {posLog}, {negLog}");
 
-    // Print summaries
     foreach (var log in new[] { (posLog, "POSITIVE"), (negLog, "NEGATIVE") }) {
         var lines = System.IO.File.ReadAllLines(log.Item1);
-        var last = lines[lines.Length-1];
-        Information($"  {log.Item2}: {last}");
+        Information($"  {log.Item2}: {lines.Last()}");
     }
 
     if (posExit != 0) throw new Exception($"Positive tests FAILED (exit {posExit})");
     if (negExit != 0) throw new Exception($"Negative tests FAILED (exit {negExit})");
-});
 
+});
 Task("ReplaceBootstrap")
     .IsDependentOn("Stage3")
     .Does(() =>
