@@ -75,12 +75,17 @@ int Ncc(string tool, string sources, string refs, string targetType, string outp
 
 // Shared framework refs (-r for compiler invocation)
 string[] FrameworkRefs(string nccRt) => new[] {
+    $"-r \"{nccRt}/System.Runtime.dll\"",
     $"-r \"{nccRt}/System.Console.dll\"",
     $"-r \"{nccRt}/System.Runtime.Extensions.dll\"",
     $"-r \"{nccRt}/System.Threading.Thread.dll\"",
     $"-r \"{nccRt}/System.IO.FileSystem.dll\"",
-};
+    $"-r \"{nccRt}/System.Linq.dll\"",
+    $"-r \"{nccRt}/System.Collections.dll\"",
+    $"-r \"{nccRt}/System.Xml.ReaderWriter.dll\"",
+    $"-r \"{nccRt}/System.Xml.XDocument.dll\"",
 
+};
 // Nemerle library refs from a compiler directory
 string[] NemerleRefs(string compDir) => new[] {
     $"-r \"{compDir}/Nemerle.dll\"",
@@ -273,6 +278,9 @@ Task("Stage1b")
         CopyFile($"{stage1Out}/{dll}.dll", $"{testRunnerOut}/{dll}.dll");
     CopyFile($"{nccBoot}/System.Security.Permissions.dll", $"{testRunnerOut}/System.Security.Permissions.dll");
 
+    var nccRt = FindNetCore21Runtime();
+    var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
+
     // Test framework
     Information("  Building Nemerle.Test.Framework.dll...");
     var fwFiles = string.Join(" ", new[] {
@@ -281,8 +289,8 @@ Task("Stage1b")
         "TeamCityExecutionListener", "Test", "ThreadRunner", "UnixColorizedOutputWriter",
         "VisualStudioExecutionListener", "Utils/FileSearcher", "Properties/AssemblyInfo"
     }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Test.Framework/{f}.n\""));
-    // Test framework: needs only secPermissions; Nemerle types from boot compiler
-    Ncc(tool, fwFiles, secRef,
+    var fwRef = $"{secRef} {fwRefs}";
+    Ncc(tool, fwFiles, fwRef,
         "library", $"{testRunnerOut}/Nemerle.Test.Framework.dll");
 
     // Test runner
@@ -294,9 +302,7 @@ Task("Stage1b")
         "NccTestDescription", "NccTestOutputWriter", "ProcessStartInfoFactory",
         "Properties/AssemblyInfo", "RuntimeProcessStartInfoFactory", "Verifier"
     }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Compiler.Test/{f}.n\""));
-    var trRefs = $"{secRef}" +
-        $" -r \"{testRunnerOut}/Nemerle.Test.Framework.dll\"";
-    // Boot compiler has Nemerle.Compiler/Macros loaded — no explicit -r needed
+    var trRefs = $"{secRef} {fwRefs} -r \"{testRunnerOut}/Nemerle.Test.Framework.dll\"";
     Ncc(tool, trFiles, trRefs, "exe", $"{testRunnerOut}/Nemerle.Compiler.Test.dll");
 
     Information("=== Stage 1b complete! ===");
@@ -311,10 +317,12 @@ Task("Stage2")
     var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
     EnsureDirectoryExists(stage2Out);
 
-    // Nemerle.dll: compiler has Nemerle types; framework + secPermissions refs
+    // Nemerle.dll: -nostdlib prevents loading Nemerle.dll as ref
+    // (compiler has internal Nemerle types; source redefines them into new DLL)
     var libSrc = string.Join(" ",
         System.IO.Directory.GetFiles("lib", "*.n").Select(f => $"\"{f}\""));
-    Ncc(tool, libSrc, $"-r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
+    Ncc(tool, $"-nostdlib {libSrc}",
+        $"-r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
         "library", $"{stage2Out}/Nemerle.dll");
     Information("    Nemerle.dll");
 
