@@ -117,48 +117,34 @@ Task("Clean")
     // Build outputs
     foreach (var dir in new[] { "bin", "obj" })
         if (DirectoryExists(dir))
-        {
-            DeleteDirectory(dir, new DeleteDirectorySettings { Recursive = true });
-            Information($"  Deleted {dir}/");
-        }
+            TryDeleteDir(dir, $"  Deleted {dir}/");
 
     // Test compiled files
+    void  TryDeleteFile(string f) { try { System.IO.File.Delete(f); Verbose($"  Deleted {f}"); } catch (Exception ex) { Warning($"  Could not delete {f}: {ex.Message}"); } }
+    void  TryDeleteDir(string d, string label) { try { DeleteDirectory(d, new DeleteDirectorySettings { Recursive = true }); Information(label); } catch (Exception ex) { Warning($"  {label} failed: {ex.Message}"); } }
     foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
         foreach (var ext in new[] { "*.exe", "*.dll", "*.runtimeconfig.json", "*.pdb", "*.netmodule" })
             foreach (var f in System.IO.Directory.GetFiles(dir, ext))
-            {
-                System.IO.File.Delete(f);
-                Verbose($"  Deleted {f}");
-            }
+                TryDeleteFile(f);
 
     // Test temp + generated source files
-    var testDirs = new[] { "testsuite/.tmp_test" };
-    foreach (var d in testDirs)
+    foreach (var d in new[] { "testsuite/.tmp_test" })
         if (DirectoryExists(d))
-        {
-            DeleteDirectory(d, new DeleteDirectorySettings { Recursive = true });
-            Information($"  Deleted {d}/");
-        }
+            TryDeleteDir(d, $"  Deleted {d}/");
 
     // Generated Nemerle sources in testsuite
     foreach (var f in System.IO.Directory.GetFiles("testsuite/positive", "_N_GeneratedSource_*.n"))
-    { System.IO.File.Delete(f); Verbose($"  Deleted {f}"); }
+        TryDeleteFile(f);
     foreach (var f in System.IO.Directory.GetFiles("testsuite/negative", "_N_GeneratedSource_*.n"))
-    { System.IO.File.Delete(f); Verbose($"  Deleted {f}"); }
+        TryDeleteFile(f);
 
     // Test runner output
     if (DirectoryExists(testRunnerOut))
-    {
-        DeleteDirectory(testRunnerOut, new DeleteDirectorySettings { Recursive = true });
-        Information($"  Deleted {testRunnerOut}/");
-    }
+        TryDeleteDir(testRunnerOut, $"  Deleted {testRunnerOut}/");
 
     // Shim temp
     if (DirectoryExists("tmp_shim"))
-    {
-        DeleteDirectory("tmp_shim", new DeleteDirectorySettings { Recursive = true });
-        Information("  Deleted tmp_shim/");
-    }
+        TryDeleteDir("tmp_shim", "  Deleted tmp_shim/");
 
     Information("Clean completed.");
 });
