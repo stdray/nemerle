@@ -305,47 +305,35 @@ Task("Stage2")
     .IsDependentOn("Stage1b")
     .Does(() =>
 {
-    Information("=== STAGE 2: Building compiler with Stage 1 compiler ===");
-
     var nccRt = FindNetCore21Runtime();
     var tool  = $"{stage1Out}/ncc-core.exe";  // Stage 1 → Stage 2
-    var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
+    var refs  = AllRefs(stage1Out, nccRt);     // original working approach
     EnsureDirectoryExists(stage2Out);
 
-    // Nemerle.dll: compiler IS Nemerle, only need framework refs + -nostdlib
-    // (-nostdlib prevents loading Nemerle.dll as ref, compiler uses internal types)
     var libSrc = string.Join(" ",
         System.IO.Directory.GetFiles("lib", "*.n").Select(f => $"\"{f}\""));
-    StartProcess("dotnet", $"\"{tool}\" -nostdlib {libSrc} -t library -o \"{stage2Out}/Nemerle.dll\" {fwRefs}");
+    Ncc(tool, libSrc, refs, "library", $"{stage2Out}/Nemerle.dll");
     Information("    Nemerle.dll");
 
     var compSrc = string.Join(" ",
         new[] { "ncc/shared", "ncc/backend", "ncc/frontend", "Nemerle.Location" }
-            .SelectMany(d => System.IO.Directory.GetFiles(d, "*.n",
-                System.IO.SearchOption.AllDirectories))
+            .SelectMany(d => System.IO.Directory.GetFiles(d, "*.n", System.IO.SearchOption.AllDirectories))
             .Select(f => $"\"{f}\""));
-    // Nemerle.Compiler.dll: needs just-built Nemerle.dll + framework refs
-    var ccRefs = $"-r \"{stage2Out}/Nemerle.dll\" {fwRefs}";
-    Ncc(tool, compSrc, ccRefs, "library", $"{stage2Out}/Nemerle.Compiler.dll");
+    Ncc(tool, compSrc, refs, "library", $"{stage2Out}/Nemerle.Compiler.dll");
     Information("    Nemerle.Compiler.dll");
 
     var macSrc = string.Join(" ",
         System.IO.Directory.GetFiles("macros", "*.n").Select(f => $"\"{f}\""));
-    // Nemerle.Macros.dll: needs just-built Nemerle + Compiler, NOT old Macros.dll
-    // (compiler already loads macros for execution; source redefines them into new DLL)
-    var macRefs = $"-r \"{stage2Out}/Nemerle.dll\" -r \"{stage2Out}/Nemerle.Compiler.dll\" {fwRefs}";
-    Ncc(tool, macSrc, macRefs, "library", $"{stage2Out}/Nemerle.Macros.dll");
+    Ncc(tool, macSrc, refs, "library", $"{stage2Out}/Nemerle.Macros.dll");
     Information("    Nemerle.Macros.dll");
 
-    // ncc-core.exe: all Stage 2 DLLs
-    var exeRefs = $"-r \"{stage2Out}/Nemerle.dll\" -r \"{stage2Out}/Nemerle.Compiler.dll\" -r \"{stage2Out}/Nemerle.Macros.dll\" -r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}";
-    Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n", exeRefs,
-        "exe", $"{stage2Out}/ncc-core.exe");
+    Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n", refs, "exe", $"{stage2Out}/ncc-core.exe");
     Information("    ncc-core.exe");
 
     CopyFile($"{stage1Out}/dnlib.dll", $"{stage2Out}/dnlib.dll");
     CopyFile($"{stage1Out}/System.Security.Permissions.dll", $"{stage2Out}/System.Security.Permissions.dll");
     WriteRuntimeConfig($"{stage2Out}/ncc-core.runtimeconfig.json");
+
 
     Information("=== Stage 2 complete! ===");
 });
