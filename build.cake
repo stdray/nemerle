@@ -281,7 +281,8 @@ Task("Stage1b")
         "TeamCityExecutionListener", "Test", "ThreadRunner", "UnixColorizedOutputWriter",
         "VisualStudioExecutionListener", "Utils/FileSearcher", "Properties/AssemblyInfo"
     }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Test.Framework/{f}.n\""));
-    Ncc(tool, fwFiles, $"{secRef} -r \"{stage1Out}/Nemerle.dll\"",
+    // Test framework: needs only secPermissions; Nemerle types from boot compiler
+    Ncc(tool, fwFiles, secRef,
         "library", $"{testRunnerOut}/Nemerle.Test.Framework.dll");
 
     // Test runner
@@ -293,9 +294,9 @@ Task("Stage1b")
         "NccTestDescription", "NccTestOutputWriter", "ProcessStartInfoFactory",
         "Properties/AssemblyInfo", "RuntimeProcessStartInfoFactory", "Verifier"
     }.Select(f => $"\"snippets/Nemerle.Test/Nemerle.Compiler.Test/{f}.n\""));
-    var trRefs = $"{secRef} -r \"{testRunnerOut}/Nemerle.Test.Framework.dll\"" +
-                 $" -r \"{stage1Out}/Nemerle.dll\" -r \"{stage1Out}/Nemerle.Compiler.dll\"" +
-                 $" -r \"{stage1Out}/Nemerle.Macros.dll\"";
+    var trRefs = $"{secRef}" +
+        $" -r \"{testRunnerOut}/Nemerle.Test.Framework.dll\"";
+    // Boot compiler has Nemerle.Compiler/Macros loaded — no explicit -r needed
     Ncc(tool, trFiles, trRefs, "exe", $"{testRunnerOut}/Nemerle.Compiler.Test.dll");
 
     Information("=== Stage 1b complete! ===");
@@ -306,30 +307,39 @@ Task("Stage2")
     .Does(() =>
 {
     var nccRt = FindNetCore21Runtime();
-    var tool  = $"{stage1Out}/ncc-core.exe";  // Stage 1 → Stage 2
-    var refs  = AllRefsNoBase(stage1Out, nccRt);
+    var tool  = $"{stage1Out}/ncc-core.exe";
+    var fwRefs = string.Join(" ", FrameworkRefs(nccRt));
     EnsureDirectoryExists(stage2Out);
 
+    // Nemerle.dll: compiler has Nemerle types; framework + secPermissions refs
     var libSrc = string.Join(" ",
         System.IO.Directory.GetFiles("lib", "*.n").Select(f => $"\"{f}\""));
-    Ncc(tool, libSrc, refs, "library", $"{stage2Out}/Nemerle.dll");
+    Ncc(tool, libSrc, $"-r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
+        "library", $"{stage2Out}/Nemerle.dll");
     Information("    Nemerle.dll");
 
     var compSrc = string.Join(" ",
         new[] { "ncc/shared", "ncc/backend", "ncc/frontend", "Nemerle.Location" }
             .SelectMany(d => System.IO.Directory.GetFiles(d, "*.n", System.IO.SearchOption.AllDirectories))
             .Select(f => $"\"{f}\""));
-    Ncc(tool, compSrc, refs, "library", $"{stage2Out}/Nemerle.Compiler.dll");
+    // Compiler DLL: ref just-built Nemerle.dll (not Compiler/Macros from Stage 1)
+    Ncc(tool, compSrc, $"-r \"{stage2Out}/Nemerle.dll\" -r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
+        "library", $"{stage2Out}/Nemerle.Compiler.dll");
     Information("    Nemerle.Compiler.dll");
 
     var macSrc = string.Join(" ",
         System.IO.Directory.GetFiles("macros", "*.n").Select(f => $"\"{f}\""));
-    Ncc(tool, macSrc, refs, "library", $"{stage2Out}/Nemerle.Macros.dll");
+    // Macros DLL: ref just-built Nemerle + Compiler, NOT Macros.dll (compiler has loaded)
+    Ncc(tool, macSrc, $"-r \"{stage2Out}/Nemerle.dll\" -r \"{stage2Out}/Nemerle.Compiler.dll\" -r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
+        "library", $"{stage2Out}/Nemerle.Macros.dll");
     Information("    Nemerle.Macros.dll");
 
-    Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n", refs, "exe", $"{stage2Out}/ncc-core.exe");
-
+    // ncc-core.exe: all Stage 2 DLLs + secPermissions + framework
+    Ncc(tool, "ncc/main.n ncc/shared/AssemblyInfo.n",
+        $"-r \"{stage2Out}/Nemerle.dll\" -r \"{stage2Out}/Nemerle.Compiler.dll\" -r \"{stage2Out}/Nemerle.Macros.dll\" -r \"{stage1Out}/System.Security.Permissions.dll\" {fwRefs}",
+        "exe", $"{stage2Out}/ncc-core.exe");
     Information("    ncc-core.exe");
+
     CopyFile($"{stage1Out}/dnlib.dll", $"{stage2Out}/dnlib.dll");
     CopyFile($"{stage1Out}/System.Security.Permissions.dll", $"{stage2Out}/System.Security.Permissions.dll");
     WriteRuntimeConfig($"{stage2Out}/ncc-core.runtimeconfig.json");
