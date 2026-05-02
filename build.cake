@@ -89,8 +89,18 @@ string[] NemerleRefs(string compDir) => new[] {
     $"-r \"{compDir}/System.Security.Permissions.dll\"",
 };
 
+// Nemerle refs WITHOUT Nemerle.dll (boot compiler already has it loaded)
+string[] NemerleRefsNoBase(string compDir) => new[] {
+    $"-r \"{compDir}/Nemerle.Compiler.dll\"",
+    $"-r \"{compDir}/Nemerle.Macros.dll\"",
+    $"-r \"{compDir}/System.Security.Permissions.dll\"",
+};
+
 string AllRefs(string compDir, string nccRt)
     => string.Join(" ", NemerleRefs(compDir).Concat(FrameworkRefs(nccRt)));
+
+string AllRefsNoBase(string compDir, string nccRt)
+    => string.Join(" ", NemerleRefsNoBase(compDir).Concat(FrameworkRefs(nccRt)));
 
 // Test runner -ref flags
 string[] TestRunnerRefs(string nccBootDir, string nccRt)
@@ -228,7 +238,7 @@ Task("Stage1")
     var nccRt = FindNetCore21Runtime();
     var exitCode = Ncc($"{nccBoot}/ncc.exe",
         "ncc/main.n ncc/shared/AssemblyInfo.n",
-        AllRefs(nccBoot, nccRt),
+        AllRefsNoBase(nccBoot, nccRt),
         "exe", $"{stage1Out}/ncc-core.exe");
     if (exitCode != 0)
         throw new Exception($"ncc-core build failed with exit code {exitCode}");
