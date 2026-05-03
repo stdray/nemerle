@@ -4,6 +4,12 @@ public class ServerState
 {
     private readonly Dictionary<string, OpenDocument> _documents = new();
     private readonly object _lock = new();
+    private readonly EngineHost _engine;
+
+    public ServerState()
+    {
+        _engine = new EngineHost(Enumerable.Empty<string>());
+    }
 
     public void AddDocument(string uri, string text, int version)
     {
@@ -32,15 +38,12 @@ public class ServerState
             return _documents.TryGetValue(uri, out var d) ? d : null;
     }
 
-    // Stub implementations for now — will integrate with IIdeEngine later
-
     public Task<List<Diagnostic>> GetDiagnosticsAsync(string uri)
     {
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<Diagnostic>());
 
-        // For now: return empty, will integrate with ManagerClass.MessageOccured
-        return Task.FromResult(new List<Diagnostic>());
+        return Task.Run(() => _engine.GetDiagnostics(doc.Uri, doc.Text));
     }
 
     public Task<List<CompletionItem>> GetCompletionAsync(string uri, Position position)
@@ -48,7 +51,7 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<CompletionItem>());
 
-        // Stub: return a keyword completion for demonstration
+        // Stub completion for now — engine completion requires full IntelliSense init
         var items = new List<CompletionItem>
         {
             new() { Label = "def", Kind = CompletionItemKind.Keyword, Detail = "Define a function or value", InsertText = "def $0" },
@@ -71,7 +74,6 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
-        // Stub: return line info
         var lines = doc.Text.Split('\n');
         if (position.Line < lines.Length)
         {
@@ -84,7 +86,6 @@ public class ServerState
 
     public Task<List<Location>> GetDefinitionAsync(string uri, Position position)
     {
-        // Stub: return empty for now
         return Task.FromResult(new List<Location>());
     }
 }

@@ -57,9 +57,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "bun compile",
+    "compile": "bunx tsc -p ./",
+    "watch": "bunx tsc -watch -p ./"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
