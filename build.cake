@@ -438,6 +438,51 @@ Task("CI")
         Information("=== CI COMPLETE ===");
     });
 
+Task("BuildVscode")
+    .IsDependentOn("Stage1")
+    .Does(() =>
+{
+    Information("=== BUILDING VSCODE LANGUAGE SERVER ===");
+    var absS1Out = System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/');
+    EnsureDirectoryExists($"{testOut}/Vscode");
+
+    // Build Nemerle.Language.Core.dll (Nemerle, netstandard2.0)
+    DotNetBuildOne("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", absS1Out, $"{testOut}/Vscode", "obj/Tests/VscodeCore");
+
+    // Build nemerle-language-server (C#, net8.0)
+    DotNetBuild("ide/vscode/nemerle-language-server/Nemerle.LanguageServer.csproj", new DotNetBuildSettings {
+        MSBuildSettings = new DotNetMSBuildSettings()
+            .SetConfiguration(configuration)
+            .WithProperty("NemerleBin", System.IO.Path.GetFullPath($"{testOut}").Replace('\\', '/') + "/")
+            .WithProperty("OutputPath", System.IO.Path.GetFullPath($"{testOut}/Vscode").Replace('\\', '/') + "/")
+    });
+
+    // Copy dependencies
+    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll", "Nemerle.Language.Core.dll" })
+        CopyFile($"{testOut}/{dll}", $"{testOut}/Vscode/{dll}");
+
+    WriteRuntimeConfig($"{testOut}/Vscode/nemerle-language-server.runtimeconfig.json", "8.0", "LatestMajor");
+    Information("=== VSCODE LANGUAGE SERVER BUILT ===");
+});
+
+Task("TestVscode")
+    .IsDependentOn("BuildVscode")
+    .Does(() =>
+{
+    Information("=== RUNNING VSCODE LANGUAGE SERVER TESTS ===");
+    var testProject = "ide/vscode/nemerle-language-server.tests/Nemerle.LanguageServer.Tests.csproj";
+    if (!FileExists(testProject)) {
+        Information("  Test project not found, skipping");
+        return;
+    }
+    DotNetTest(testProject, new DotNetTestSettings {
+        Configuration = configuration,
+        Loggers = new[] { "trx" },
+        ResultsDirectory = $"{testOut}/Vscode"
+    });
+    Information("=== VSCODE TESTS COMPLETE ===");
+});
+
 Task("Default")
     .IsDependentOn("Stage1");
 

@@ -95,3 +95,12 @@ validate_tmp/
 boot-dnlib-netcore21/
 AGENTS.md
 doc/*.md
+# VSCode extension artifacts
+ide/vscode/vscode-client/node_modules/
+ide/vscode/vscode-client/out/
+ide/vscode/vscode-client/*.vsix
+# VSCode language server build output
+ide/vscode/nemerle-language-server/bin/
+ide/vscode/nemerle-language-server/obj/
+ide/vscode/nemerle-language-core/bin/
+ide/vscode/nemerle-language-core/obj/
