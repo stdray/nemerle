@@ -7,11 +7,13 @@ public class ServerState
     private readonly Dictionary<string, OpenDocument> _documents = new();
     private readonly object _lock = new();
     private readonly EngineHost _engine;
+    private readonly CompletionEngine _completionEngine;
     private string? _rootPath;
 
     public ServerState()
     {
         _engine = new EngineHost();
+        _completionEngine = new CompletionEngine();
     }
 
     public void SetWorkspaceRoot(string? rootUri)
@@ -63,20 +65,10 @@ public class ServerState
 
     public Task<List<CompletionItem>> GetCompletionAsync(string uri, Position position)
     {
-        var items = new List<CompletionItem>
-        {
-            new() { Label = "def", Kind = CompletionItemKind.Keyword, Detail = "Define a function or value", InsertText = "def $0" },
-            new() { Label = "mutable", Kind = CompletionItemKind.Keyword, Detail = "Mutable variable modifier", InsertText = "mutable $0" },
-            new() { Label = "class", Kind = CompletionItemKind.Keyword, Detail = "Class declaration", InsertText = "class $0\n{\n}" },
-            new() { Label = "module", Kind = CompletionItemKind.Keyword, Detail = "Module declaration", InsertText = "module $0\n{\n}" },
-            new() { Label = "using", Kind = CompletionItemKind.Keyword, Detail = "Import namespace", InsertText = "using $0;" },
-            new() { Label = "variant", Kind = CompletionItemKind.Keyword, Detail = "Variant type declaration", InsertText = "variant $0\n{\n}" },
-            new() { Label = "match", Kind = CompletionItemKind.Keyword, Detail = "Pattern match expression", InsertText = "match ($0)\n{\n}" },
-            new() { Label = "fun", Kind = CompletionItemKind.Keyword, Detail = "Lambda expression", InsertText = "fun($0)" },
-            new() { Label = "namespace", Kind = CompletionItemKind.Keyword, Detail = "Namespace declaration", InsertText = "namespace $0\n{\n}" },
-            new() { Label = "when", Kind = CompletionItemKind.Keyword, Detail = "Guard clause in match", InsertText = "when ($0)" },
-        };
-        return Task.FromResult(items);
+        var doc = GetDocument(uri);
+        if (doc == null) return Task.FromResult(new List<CompletionItem>());
+
+        return Task.Run(() => _completionEngine.GetCompletions(doc.Text, position));
     }
 
     public Task<Hover?> GetHoverAsync(string uri, Position position)
@@ -85,12 +77,24 @@ public class ServerState
         if (doc == null) return Task.FromResult<Hover?>(null);
 
         var lines = doc.Text.Split('\n');
-        if (position.Line < lines.Length)
-        {
-            return Task.FromResult<Hover?>(new Hover(
-                $"`{lines[position.Line].Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}"));
-        }
-        return Task.FromResult<Hover?>(null);
+        if (position.Line >= lines.Length)
+            return Task.FromResult<Hover?>(null);
+
+        var line = lines[position.Line];
+
+        // Get diagnostics for this position to show as hover
+        var diags = _engine.GetDiagnostics(doc.Uri, doc.Text);
+        var lineDiags = diags.Where(d =>
+            d.Range.Start.Line == (int)position.Line
+            && d.Severity == DiagnosticSeverity.Error)
+            .Select(d => $"- **{d.Severity}**: {d.Message}")
+            .ToList();
+
+        var md = $"`{line.Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}";
+        if (lineDiags.Count > 0)
+            md += "\n\n### Errors\n" + string.Join("\n", lineDiags);
+
+        return Task.FromResult<Hover?>(new Hover(md));
     }
 
     public Task<List<Location>> GetDefinitionAsync(string uri, Position position)
