@@ -11,6 +11,7 @@
     <RootNamespace>Nemerle.Compiler.Test</RootNamespace>
     <AssemblyName>Nemerle.Compiler.Test</AssemblyName>
     <TargetFramework>net8.0</TargetFramework>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <FileAlignment>512</FileAlignment>
     <NoStdLib>true</NoStdLib>
     <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>

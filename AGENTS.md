@@ -8,7 +8,7 @@ Reply in the user's language.
 
 ## Status
 
-`retarget-compiler` branch — net8.0 bootstrap. Last known: 440/452 positive (97%), 165/166 negative (99%).
+`retarget-compiler` branch — net8.0 bootstrap. CI verified: 440/452 positive (97%), 165/166 negative (99%).
 
 ## VSCode extension status
 
