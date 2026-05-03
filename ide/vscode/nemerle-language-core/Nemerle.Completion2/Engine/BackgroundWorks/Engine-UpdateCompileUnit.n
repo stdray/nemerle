@@ -1,0 +1,398 @@
+﻿using System;
+using System.Diagnostics;
+using System.Collections.Generic;
+using System.Linq;
+
+using Nemerle.Assertions;
+using Nemerle.Collections;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Imperative;
+using Nemerle.Utility;
+using Nemerle.Compiler.Utils;
+using Nemerle.Compiler.Utils.Async;
+using Nemerle.Surround;
+
+[assembly: DefineSurround("currentAsyncRequest", false,
+                          _currentAsyncRequest = request,
+                          {
+                            _currentAsyncRequest = null;
+                          })]
+
+
+namespace Nemerle.Completion2
+{
+  using MethodBuilderEx = Factories.IntelliSenseModeMethodBuilder;
+
+  public module RelocationFactory
+  {
+    public mutable CreateRelocationInfo : Func[IChanges, RelocationInfo];
+  }
+
+  public class RelocationException : Exception { }
+
+  internal partial class Engine
+  {
+    public LastEditTime : DateTime { get; private set; }
+
+    public BeginUpdateCompileUnit(ideSource : IIdeSource, changes : IChanges) : AsyncRequest
+    {
+      LastEditTime = DateTime.Now;
+      def request = UpdateCompileUnitAsyncRequest(this, ideSource, changes, UpdateCompileUnit);
+      AsyncWorker.AddWork(request);
+      request
+    }
+
+    /// Run by AsyncWorker thread! Parse CompileUnit. Set CompileUnit to source. Update information about outline regions.
+    private UpdateCompileUnit(request : AsyncRequest) : void
+    {
+      surroundwith (currentAsyncRequest)
+      try
+      {
+        AsyncWorker.CheckCurrentThreadIsTheAsyncWorker();
+        AsyncWorker.AddResponse(() => _callback.SetStatusText("Update compile unit..."));
+
+        when (request.Stop)
+        {
+          AsyncWorker.AddResponse(() => _callback.SetStatusText("Update compile unit is canceled."));
+          return;
+        }
+
+        def timer  = Stopwatch.StartNew();
+        def req    = request :> UpdateCompileUnitAsyncRequest;
+        def result = TryRelacate(req.Changes);
+
+        timer.Stop();
+
+        if (result)
+        {
+          def msg = "Update compile unit made relocarion. The relocarion took: " + timer.Elapsed;
+          //Debug.WriteLine(msg);
+          AsyncWorker.AddResponse(() => _callback.SetStatusText(msg));
+        }
+        else
+        {
+          def msg = "Update compile unit choice to rebuild type tree. The choice  took: " + timer.Elapsed;
+          //Debug.WriteLine(msg);
+          AsyncWorker.AddResponse(() => _callback.SetStatusText(msg));
+          if (req.Changes == null)
+            AsyncWorker.AddResponse(() => _callback.TypesTreeCreated());
+          else when (_optionsHasBeenRead)
+            _ = BeginBuildTypesTree();
+        }
+      }
+      catch
+      { | e is CompilationAbortedException =>
+          def msg = $"The update CompileUnit operation aborted at: $(e.Message)";
+          throw CompilationAbortedException(msg, e);
+        | _ is RelocationException =>
+          when (_optionsHasBeenRead)
+            _ = BeginBuildTypesTree();
+      }
+      finally
+      {
+        request.MarkAsCompleted();
+      }
+    }
+
+    TryRelacate(changes : IChanges) : bool
+    {
+      when (IsDefaultEngine)
+        return false;
+
+      when (changes == null)
+        return false;
+
+      def project = this.Project;
+
+      when (project == null)
+        return false;
+
+      def fileIndex   = changes.Before.FileIndex;
+      def compileUnit = project.CompileUnits[fileIndex];
+
+      when (compileUnit == null)
+        return false;
+
+      match (changes)
+      {
+        | single  is ISingleChanges   => TryRelacate(changes, single.Change, project, compileUnit)
+        | multile is IMultipleChanges =>
+          foreach (change in multile.ReversedChanges)
+            unless (TryRelacate(changes, change, project, compileUnit))
+              return false;
+          true
+
+        | _ => assert2(false); true
+      }
+    }
+
+    GetTokens(loc : Location) : array[Token]
+    {
+      def lexer = Lexer(this, loc);
+      lexer.Keywords = this.CoreEnv.Keywords;
+      lexer.ReadAllTokens()
+    }
+
+    findMinLocation(compileUnit : CompileUnit, changedLoc : Location) : Location
+    {
+      def decl = compileUnit.FindDecl(changedLoc);
+      when (changedLoc.IsNestedInOrEquals(decl.Location))
+      {
+        match (decl)
+        {
+          | GlobalAttribute
+          | Using
+          | Namespace
+          | None => return decl.Location;
+          | Type(ast) when changedLoc.IsNestedInOrEquals(ast.BodyInnerLocation) =>
+            def members = ast.GetMembers();
+            match (members.Find(m => changedLoc.IsNestedInOrEquals(m.Location)))
+            {
+              | Some(member) => return member.Location;
+              | _            => return decl.Location;
+            }
+          | Type => return decl.Location;
+        }
+      }
+
+      if (compileUnit.TopNamespace.HeaderLocation.IntersectsWith(changedLoc))
+        compileUnit.TopNamespace.HeaderLocation
+      else
+        Location(changedLoc.Source, 0, changedLoc.Source.Text.Length)
+    }
+
+    isOnlySpacesChangedImpl(changes : IChanges, change : Change, compileUnit : CompileUnit) : bool
+    {
+      def beforeSource = changes.Before;
+      def afterSource  = changes.After;
+      def beforeText   = beforeSource.Text;
+      def afterText    = afterSource.Text;
+      def oldSpan      = change.OldSpan;
+      def oldEndPos    = oldSpan.EndPos;
+      def changedLoc   = Location(beforeSource, oldSpan);
+      def loc          = findMinLocation(compileUnit, changedLoc);
+      def tokens       = GetTokens(loc);
+      def oldSpan      = changedLoc.Span;
+      def newSpan      = change.NewSpan;
+      mutable prev = NSpan(0);
+
+      foreach (token in tokens)
+      {
+        def tokenLoc  = token.Location;
+        def tokenSpan = tokenLoc.Span;
+        assert2(tokenSpan.StartPos <= tokenSpan.EndPos);
+        when (tokenLoc.IntersectsWith(oldSpan) && tokenSpan.StartPos != oldSpan.EndPos && tokenSpan.EndPos != oldSpan.StartPos)
+          return false;
+
+        when (newSpan.Length == 0 && oldSpan.StartPos == prev.EndPos && oldSpan.EndPos == tokenSpan.StartPos)
+          return false;
+
+        prev = tokenSpan;
+      }
+
+      for (mutable i = oldSpan.StartPos; i < oldEndPos; i++)
+        unless (char.IsWhiteSpace(beforeText[i]))
+          return false;
+
+      def newEndPos = change.NewSpan.EndPos;
+
+      for (mutable i = change.NewSpan.StartPos; i < newEndPos; i++)
+        unless (char.IsWhiteSpace(afterText[i]))
+          return false;
+      true
+    }
+
+    isOnlySpacesChanged(changes : IChanges, change : Change, compileUnit : CompileUnit) : bool
+    {
+      def timer  = Stopwatch.StartNew();
+      def result = isOnlySpacesChangedImpl(changes, change, compileUnit);
+      Debug.WriteLine("isOnlySpacesChanged() took: " + timer.Elapsed);
+      result
+    }
+
+    relocate(changes : IChanges, project : Project, compileUnit : CompileUnit) : void
+    {
+      def timer = Stopwatch.StartNew();
+      def info  = RelocationFactory.CreateRelocationInfo(changes);
+      compileUnit.TopNamespace.Relocate(info);
+      def typeBuilders = project.NamespaceTree.GetTypeBuilders();
+      foreach (typeBuilder in typeBuilders)
+        (typeBuilder : ISupportRelocation).RelocateImpl(info);
+      Debug.WriteLine("relocate() took: " + timer.Elapsed);
+    }
+
+    TryRelacate(changes : IChanges, change : Change, project : Project, compileUnit : CompileUnit) : bool
+    {
+      // Релокация поддерживается для двух случаев: 1) изменились только пробелы; 2) изменения происходят внутри тела метода.
+
+      when (isOnlySpacesChanged(changes, change, compileUnit))
+      {
+        //Debug.WriteLine($"begin relocate() by isOnlySpacesChanged() changes='$changes' ThreadId=" + AsyncWorker.ThreadId);
+        relocate(changes, project, compileUnit);
+        //Debug.WriteLine($"end relocate() by isOnlySpacesChanged() changes='$changes' ThreadId=" + AsyncWorker.ThreadId);
+        return true;
+      }
+
+      def beforeSource = changes.Before;
+      def oldSpan      = change.OldSpan;
+      def at           = Location(beforeSource, oldSpan.StartPos, oldSpan.EndPos);
+      def declOpt      = compileUnit.FindMember(at);
+
+      def canRetypeOnlyMemberBody =
+        match (declOpt)
+        {
+          | Some(m is ClassMember.Function) =>
+            def loc = m.BodyInnerLocation;
+            if (at.IsNestedIn(loc))
+            {
+              def resetedMember = m.Builder :> MethodBuilderEx;
+              if (resetedMember == null)
+                false
+              else
+              {
+                resetedMember.ResetCodeCache();
+                def info  = RelocationFactory.CreateRelocationInfo(changes);
+                when (AsyncWorker.IsWorkerThread)
+                {
+                  assert2(true);
+                }
+                (m : ISupportRelocation).RelocateImpl(info);
+                when (AsyncWorker.IsWorkerThread)
+                {
+                  assert2(true);
+                }
+                AsyncWorker.AddResponse(() => _callback.ClearMethodCompilerMessages(resetedMember));
+                AddMethodAtFirstCheckQueue(resetedMember); // Add request for typing of relocated method body
+                true
+              }
+            }
+            else
+              false
+
+          | _x => false
+        };
+
+      when (canRetypeOnlyMemberBody)
+      {
+        //Debug.WriteLine($"begin relocate() by canRetypeOnlyMemberBody changes='$changes' ThreadId=" + AsyncWorker.ThreadId);
+        relocate(changes, project, compileUnit);
+        //Debug.WriteLine($"end relocate() by canRetypeOnlyMemberBody changes='$changes' ThreadId=" + AsyncWorker.ThreadId);
+      }
+
+      canRetypeOnlyMemberBody
+    }
+
+    static CollectAndApplyTopDeclarations(source : IIdeSource, compUnit : CompileUnit) : void
+    {
+      def topDecls       = compUnit.TopDeclarations;
+      def decls          = AstUtils.GetAllDeclarations(topDecls);
+
+      def declsAry = decls
+        .Where(d => d.name is Splicable.Name && d.name.GetName().context != null)
+        .OrderBy(d => d.Name)
+        .ToArray();
+
+      //source.Declarations = declsAry;
+      AsyncWorker.AddResponse(() => source.SetTopDeclarations(declsAry));
+      //source.SetTopDeclarations(declsAry);
+    }
+
+    static CollectAndApplyRegions(ideSource : IIdeSource, compUnit : CompileUnit) : void
+    {
+      def version = compUnit.Source.Version;
+      when (ideSource.Version != version)
+        return;
+
+      when (compUnit.ParseCompilerMessages.Any(cm => cm.Msg.Contains("parse error")))
+        return;
+
+      def regions = RegionsHelper.Collect(compUnit);
+
+      when (ideSource.Version != version)
+        return;
+
+      AsyncWorker.AddResponse(() => ideSource.SetRegions(regions, version));
+    }
+
+    internal ParseCompileUnit(source : SourceSnapshot) : CompileUnit
+    {
+      RestoreManagerClassInstance();
+      _isCompileUnit = true;
+      def currentMessages = _currentMessages;
+      try
+      {
+        _namespaces.Clear();
+
+        _currentMessages = List();
+        _decls           = [];
+        def parseResult  =
+          try Parser.Parse(source)
+          catch
+          { | e =>
+              Message.Error(Location(source, 0), $"Exception: [$(e.GetType().Name)] $(e.Message)");
+              ParseResult([])
+          };
+        def loc          = Location(source, 0, source.OriginalText.Length);
+        def commentLocs  = parseResult.CommentLocations;
+        def openLoc      = loc.FromStart();
+        def closeLoc     = openLoc.FromEnd();
+        def insideEnv    = match (_decls.Find(_ is Decl.Using))
+                           { | Some(Decl.Using as u) => u.AfterEnv | _ => CoreEnv };
+        def topNs        = Decl.Namespace(loc, _decls.Rev(), [], [], CoreEnv, insideEnv, source, openLoc, openLoc, closeLoc, parseResult.TopDeclarations);
+
+        assert(_namespaces.Count == 0);
+
+        // Данная функция подключает полученный список TopDeclaration-ов в пространсва имен к которым
+        // они пренадлежат.
+        // Go through namespaces for each file.
+
+        def addTypes(ns, topDeclarations) : void
+        {
+          def getNsDeclList(ns, acc = List())
+          {
+            acc.Add(ns);
+
+            foreach (subNs is Decl.Namespace in ns.Decls)
+              _ = getNsDeclList(subNs, acc);
+
+            acc
+          }
+
+          def typesGroupedByNs = topDeclarations.GroupBy(
+                d => match (d.TryGetEnv()) { | Some(env) => env | _ => null });
+          def nsDeclList = getNsDeclList(ns).NToList();
+          def join = nsDeclList.Join(typesGroupedByNs,
+                nsDecl => nsDecl.InsideEnv,
+                group  => group.Key,
+                x      => x);
+          foreach ((nsDecl, group) in join)
+            foreach (topDeclaration in group)
+              nsDecl.Decls ::= Decl.Type(topDeclaration.Location, topDeclaration);
+        }
+
+        addTypes(topNs, parseResult.TopDeclarations);
+
+        def cu = CompileUnit(topNs, parseResult.TopDeclarations.Rev(), parseResult.Regions.Rev(), _currentMessages.UpCastToArray(), source, commentLocs);
+
+        foreach (msg in cu.ParseCompilerMessages)
+          msg.CompileUnit = cu;
+
+        AsyncWorker.AddResponse(() => _callback.SetCompilerMessageForCompileUnit(cu));
+        //_callback.SetCompilerMessageForCompileUnit(cu);
+
+        cu
+      }
+      finally
+      {
+        _isCompileUnit = false;
+
+        //when (currentMessages != null && _currentMessages.Count > 0)
+        //  currentMessages.AddRange(_currentMessages);
+
+        _currentMessages = currentMessages;
+        _decls           = [];
+      }
+    }
+  } // end class Engine
+} // end of Nemerle.Completion2 namespace

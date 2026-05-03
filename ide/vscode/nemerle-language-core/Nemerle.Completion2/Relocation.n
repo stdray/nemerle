@@ -1,0 +1,62 @@
+﻿using Nemerle.Compiler;
+using Nemerle.Utility;
+
+using Nemerle.Imperative;
+using System.Diagnostics;
+
+using Nemerle.Collections;
+using SCG = System.Collections.Generic;
+using Attr = Nemerle.Compiler.NemerleModifiers;
+using Member = Nemerle.Compiler.Parsetree.ClassMember;
+
+namespace Nemerle.Completion2
+{
+  module Relocation
+  {
+    public Relocate(this decl : Decl.Namespace, info : RelocationInfo) : void
+    {
+      RelocateDecl(decl, info);
+      def source = decl.HeaderLocation.Source;
+      def len    = source.Text.Length;
+      when (decl.HeaderLocation.StartPos != 0)
+      { // Положение начала файла не должно изменяться даже если редактирование происходит в его начале!
+        def start  = Location(source, 0);
+
+        decl.HeaderLocation        = start;
+        decl.BodyOpenTokenLocation = start;
+        decl.Location              = Location(source, 0, len);
+      }
+      when (decl.Location.EndPos != len)
+      {
+        def loc = Location(source, 0, len);
+        decl.Location               = loc;
+        decl.BodyCloseTokenLocation = loc.FromEnd();
+      }
+    }
+
+    RelocateDecl(decl : Decl, info : RelocationInfo) : void
+    {
+      def loc = decl.Location;
+      match (decl)
+      {
+        | GlobalAttribute => () //TODO: Add attribute support.
+        | Using as x =>
+          x.NameLocations = x.NameLocations.Map(Completion.Relocate(_, info));
+          x.AliasLocation = Completion.Relocate(x.AliasLocation, info);
+
+        | Namespace as x =>
+          foreach (decl in x.Decls)
+            RelocateDecl(decl, info);
+          x.NameLocations          = x.NameLocations.Map(Completion.Relocate(_, info));
+          x.HeaderLocation         = Completion.Relocate(x.HeaderLocation, info);
+          x.BodyOpenTokenLocation  = Completion.Relocate(x.BodyOpenTokenLocation, info);
+          x.BodyCloseTokenLocation = Completion.Relocate(x.BodyCloseTokenLocation, info);
+
+        | Type(ast) => (ast : ISupportRelocation).RelocateImpl(info);
+        | None => ()
+      }
+
+      decl.Location = Completion.Relocate(loc, info);
+    }
+  } // module Relocation
+} // namespace Nemerle.Completion2

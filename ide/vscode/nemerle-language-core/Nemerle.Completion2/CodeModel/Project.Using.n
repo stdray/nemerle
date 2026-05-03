@@ -1,0 +1,192 @@
+using System;
+using System.Diagnostics;
+using Nemerle.Assertions;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Utility;
+using SCG = System.Collections.Generic;
+
+using Nemerle.Compiler.Utils;
+using Nemerle.Compiler.Utils.Utils;
+
+namespace Nemerle.Completion2
+{
+  internal partial class Engine
+  {
+    static Truncate(name : list[string], locs : list[Location], at : Location) : list[string] * list[Location]
+    {
+      match (locs)
+      {
+        | nameLoc :: dotLoc :: tail =>
+          if (nameLoc.IntersectsWith(at))
+            ([name.Head], [nameLoc])
+          else if (dotLoc.IntersectsWith(at))
+            ([name.Head], [nameLoc, dotLoc])
+          else
+          {
+            def (name2, locs2) = Truncate(name.ChopFirstN(1), tail, at);
+            (name.Head :: name2, nameLoc :: dotLoc :: locs2)
+          }
+        | nameLoc :: [] => ([name.Head], [nameLoc])
+        | [] => ([], [])
+      }
+    }
+
+    static OpenNs(name : list[string], ns : NamespaceTree.Node, completeLastName : bool) : NamespaceTree.Node
+    {
+      if (ns.Children == null)
+        ns
+      else match (name)
+      {
+        | _ :: [] when completeLastName => ns // The end element of name
+        | head :: tail =>
+          match (ns.Children.Get(head))
+          {
+            | Some(subNs) => OpenNs(tail, subNs, completeLastName)
+            | None() => ns
+          }
+        | [] => ns
+      }
+    }
+
+    /// Returns array which contains namespace elements. If lastName is not null,
+    /// filter content by prefix is contained in lastName.
+    static GetCompletionElems(
+      resalt   : SCG.List[CompletionElem],
+      ns       : NamespaceTree.Node,
+      lastName : string,
+      isAlias  : bool
+      ) : void
+    {
+      def fitForAliace(typeInfo : NamespaceTree.TypeInfoCache)
+      {
+        | Cached                  => true
+        | CachedAmbiguous         => true
+        | NotLoaded               => assert2(false); assert(false);
+        | NotLoadedList           => assert2(false); assert(false);
+        | NamespaceReference      => true
+        | No | MacroCall          => false
+      }
+
+      def fitForNsOpen(typeInfo : NamespaceTree.TypeInfoCache)
+      {
+        // interface & delegate can't contains static member (it can't be open)
+        | Cached(ty) => !(ty.IsInterface || ty.IsDelegate)
+
+        | CachedAmbiguous(typeInfos) => typeInfos.Exists(ty : TypeInfo => !(ty.IsInterface || ty.IsDelegate))
+        | NotLoaded                  => assert2(false); assert(false);
+        | NotLoadedList              => assert2(false); assert(false);
+        | NamespaceReference         => true
+        | No | MacroCall             => false
+      }
+
+      def fitForCompletion =
+        if (lastName == null)
+          if (isAlias) (_, typeInfo) => fitForAliace(typeInfo) else (_, typeInfo) => fitForNsOpen(typeInfo)
+        else
+        {
+          def f(name, typeInfo, fitFor)
+          {
+            Completion.MatchName(name, lastName) && fitFor(typeInfo);
+          }
+          if (isAlias) f(_, _, fitForNsOpen) else f(_, _, fitForNsOpen)
+        };
+
+      foreach ((name, node) in ns.Children.KeyValuePairs)
+      {
+        node.EnsureCached();
+        when (fitForCompletion(name, node.Value))
+          resalt.Add(CompletionElem(node.Value.GetGlyphIndex() :> int,
+            name, "", array[Elem.Node(name, node)]));
+      }
+    }
+
+    private Contains(locations : list[Location], at : Location) : bool
+    {
+      match (locations)
+      {
+        | []            => false
+        | first :: []   => first.Contains(at)
+        | first :: tail => (first + tail.Last).Contains(at)
+      }
+    }
+
+    internal GetUsingQuickTip(usingDecl : Decl.Using, at : Location) : QuickTipInfo
+    {
+      def (node, locs) =
+        if (usingDecl.NameLocations.Exists(x => x.IntersectsWith(at)))
+        {
+          def (names, locs) = Truncate(usingDecl.Name, usingDecl.NameLocations, at);
+
+          (OpenNs(names, usingDecl.BeforeEnv.CurrentNamespace, false),
+            $[ x | x in locs, x.Contains(at)]);
+        }
+        else if (usingDecl.AliasLocation.Contains(at))
+        {
+          (OpenNs(usingDecl.Name, usingDecl.BeforeEnv.CurrentNamespace, false),
+            [usingDecl.AliasLocation]);
+        }
+        else
+          (null, null);
+
+        def prefix =
+          if (node == null)
+            null
+        else
+        {
+          node.EnsureCached();
+          match (node.Value)
+          {
+            | NamespaceReference  =>   "namespace"
+            | Cached(ti)          =>
+              if      (ti.IsInterface) "interface"
+              else if (ti.IsDelegate)  "delegate"
+              else                     "class"
+            | CachedAmbiguous     =>   "ambiguous"
+            | _                   =>   null
+          }
+        }
+
+        if (prefix != null)
+        {
+          Debug.WriteLine("*** Using QuickTip found.");
+          QuickTipInfo(prefix, node.FullName, locs)
+        }
+        else
+        {
+          Debug.WriteLine("*** Using QuickTip almost found.");
+          null
+        }
+    }
+
+    internal GetUsingGoto(usingDecl : Decl.Using, at : Location) : list[GotoInfo]
+    {
+      def node =
+        if (Contains(usingDecl.NameLocations, at))
+        {
+          def (names, _) = Truncate(usingDecl.Name, usingDecl.NameLocations, at);
+
+          OpenNs(names /*usingDecl.Name*/, usingDecl.BeforeEnv.CurrentNamespace, false);
+        }
+        else if (usingDecl.AliasLocation.Contains(at))
+        {
+          OpenNs(usingDecl.Name, usingDecl.BeforeEnv.CurrentNamespace, false);
+        }
+        else
+          null;
+
+      if (node != null)
+      {
+        node.EnsureCached();
+        match (node.Value)
+        {
+          | Cached(TypeBuilder as tb) => tb.AstParts.Map(p => GotoInfo(p.name.Location));
+          | Cached(ti)                => [GotoInfo(ti)];
+          | _                         => []
+        }
+      }
+      else
+        []
+    }
+  } // end class Project
+} // end namespace

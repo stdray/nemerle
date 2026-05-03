@@ -1,0 +1,596 @@
+﻿using System;
+using System.IO;
+using System.Diagnostics;
+
+using SCG = System.Collections.Generic;
+using SR  = System.Reflection;
+
+using Nemerle.Assertions;
+using Nemerle.Collections;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Imperative;
+using Nemerle.Utility;
+using Nemerle.Compiler.Utils;
+
+using TT = Nemerle.Compiler.Typedtree;
+using TExpr = Nemerle.Compiler.Typedtree.TExpr;
+using MethodBuilderEx = Nemerle.Completion2.Factories.IntelliSenseModeMethodBuilder;
+
+namespace Nemerle.Completion2
+{
+  internal partial class Engine
+  {
+    CompletionImpl([NotNull] source : IIdeSource, at : Location, importCompletion : bool) : NemerleCompletionResult
+    {
+      IsImportCompletion = importCompletion;
+
+      try
+      {
+        def compileUnit = source.CompileUnit;
+
+        when (compileUnit == null)
+          return TopKeywords;
+
+        // Find the declaration under text cursor.
+        def decl = compileUnit.FindDecl(at);
+
+        match (decl)
+        {
+          | GlobalAttribute => NemerleCompletionResult(array(0), null, false) //TODO: Реализовать Completion в атрибутах!
+          | Using as us     => CompleteInUsing(us, at);
+          | Namespace as ns => ComplateInParsedTypeAst(ns.Location, ns.InsideEnv, at);
+          | Type(ast)       => CompleteInTopDeclaration(ast, source, at);
+          | None            => assert(false);
+        }
+      }
+      finally { IsImportCompletion = false; }
+    }
+
+    TryGetTypeBuilder(tyAst : TopDeclaration, at : Location) : TypeBuilder
+    {
+      def project = this.Project;
+      def builder =
+        if (project != null)
+        {
+          def member = Project.CompileUnits[tyAst.Location.FileIndex].FindMember(at);
+          match (member)
+          {
+            | Some(ClassMember.TypeDeclaration(td)) => td.TypeBuilder
+            | Some(mem is ClassMember) => mem.DefinedIn?.TypeBuilder
+            | _ => null
+          }
+        }
+        else null;
+
+      if (builder == null) TypeBuilderEx(Hierarchy, tyAst.DefinedIn?.TypeBuilder, tyAst, tyAst.PName.context.CurrentNamespace) // temporary
+      else builder
+    }
+
+    CompleteInTopDeclaration(tyAst : TopDeclaration, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      unless (tyAst.Location.Contains(at))
+        return TopKeywords;
+
+      // комлешон возможен в:
+      // 1. Модификаторах.
+      // 2. Кастом-атрибутах.
+      // 3. Описании списка базовых типов.
+      // 4. Теле.
+      // 5. В ограничениях (where ...)
+
+      if (tyAst.BodyInnerLocation.Contains(at)) // complete in body...
+      {
+        def members = tyAst.GetMembers();
+
+        match (members.Find(m => m.Location.Contains(at)))
+        {
+          | Some(member) => Complete(member, TryGetTypeBuilder(tyAst, at), source, at)
+          | _ =>
+            if (members.IsEmpty)
+              TopKeywords
+            else
+            {
+              def last = members.NLast();
+              def loc  = last.Location;
+              if (loc.EndPos <= at.StartPos)
+                Complete(last, TryGetTypeBuilder(tyAst, at), source, at)
+              else
+                TopKeywords
+            }
+        }
+      }
+      else
+      {
+        if (tyAst.modifiers.CustomAttributesLocation.Contains(at))
+        {
+          //TODO: Реализовать дополнение в кастом-атрибутах!
+          TopKeywords;
+        }
+        else
+        {
+          def modifiersLoc = tyAst.Location.FromStart() + tyAst.NameLocation.FromStart();
+
+          if (modifiersLoc.Contains(at))
+            TopKeywords //TODO: Возвратить список модификторов!
+          else
+            CompleteInTopDeclarationBaseTypes(tyAst, at)
+        }
+      }
+    }
+
+    CompleteInTypeRef(tyAst  : TopDeclaration, tyLoc : Location, at : Location) : NemerleCompletionResult
+    {
+      def env        = tyAst.GetEnv(this.CoreEnv);
+      def lexer      = GetLexer(tyLoc);
+      def toks       = lexer.ReadAllTokens();
+      def colonIndex = toks.FindIndex(tok => tok is Token.Operator(":"));
+
+      when (colonIndex < 0)
+        return TopKeywords;
+
+      def whereIndex = toks.FindIndex(tok => tok is Token.Keyword("where"));
+      def endLoc     = if (whereIndex >= 0) toks[whereIndex].Location.FromStart()
+                       else toks.NLast().Location;
+      def startLoc   = toks[colonIndex].Location.FromEnd();
+      def loc        = startLoc + endLoc;
+      def result     = CompleteInTypeExpr(env, loc, at, TryGetTypeBuilder(tyAst, at));
+      result
+    }
+
+    CompleteInTopDeclarationBaseTypes(tyAst : TopDeclaration, at : Location) : NemerleCompletionResult
+    {
+      def bodyLoc = tyAst.BodyLocation;
+      def endLoc = if (bodyLoc == Location.Default) tyAst.Location.FromEnd() else bodyLoc.FromStart();
+      def extendsLoc = tyAst.NameLocation.FromEnd() + endLoc;
+
+      if (extendsLoc.Contains(at))
+      {
+        CompleteInTypeRef(tyAst, extendsLoc, at);
+      }
+      else
+        TopKeywords
+    }
+
+
+    Complete(member : ClassMember, paren : TypeBuilder, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      def modsAndAttrsLoc = member.Location.FromStart() + member.NameLocation.FromStart();
+
+      if (modsAndAttrsLoc.Contains(at))
+        CompleteInMemberHeader(member, source, at)
+      else match (member)
+      {
+        | ClassMember.Property        as prop   => CompleteInProperty(prop, paren, source, at)
+        | ClassMember.Function        as func   => CompleteInFunction(func, paren, source, at)
+        | ClassMember.Event           as aEvent => CompleteInEvent (aEvent, paren, source, at)
+        | ClassMember.Field           as field  => CompleteInField  (field, paren, source, at)
+        | ClassMember.TypeDeclaration(td)       => CompleteInTopDeclaration(td, source, at)
+        | ClassMember.EnumOption                => TopKeywords //TODO: Реализовать дополнение в EnumOption!
+      }
+    }
+
+    CompleteInMemberHeader(_member : MemberBase, _source : IIdeSource, _at : Location) : NemerleCompletionResult
+    {
+      TopKeywords //TODO: Реализовать дополнение в заголовках!
+    }
+
+    CompleteInProperty(prop : ClassMember.Property, paren : TypeBuilder, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      match (prop)
+      {
+        | ClassMember.Property(getter = Some(f)) when f.BodyInnerLocation.Contains(at)
+        | ClassMember.Property(setter = Some(f)) when f.BodyInnerLocation.Contains(at) =>
+          CompleteInFunction(f, paren, source, at)
+
+        | _ => CompleteInMember(prop.Env, source, paren, prop.Location, at);
+      }
+    }
+
+    CompleteInField(field : ClassMember.Field, paren : TypeBuilder, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      if (field.BodyInnerLocation.Contains(at))
+        CompleteInBody(MethodBuilderEx(paren, <[ decl: fake() : $(field.ParsedType) $(field.Initializer) ]>),
+          field.BodyInnerLocation, at)
+      else
+        CompleteInMember(field.Env, source, paren, field.Location, at);
+    }
+
+    CompleteInEvent(prop : ClassMember.Event, paren : TypeBuilder, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      match (prop)
+      {
+        | ClassMember.Event(add    = f) when f.BodyInnerLocation.Contains(at)
+        | ClassMember.Event(remove = f) when f.BodyInnerLocation.Contains(at) =>
+          CompleteInFunction(f, paren, source, at)
+
+        | _ => TopKeywords
+      }
+    }
+
+    CompleteInFunction(func : ClassMember.Function, paren : TypeBuilder, source : IIdeSource, at : Location) : NemerleCompletionResult
+    {
+      if (func.BodyInnerLocation.Contains(at))
+        CompleteInBody(func.Builder, func.BodyInnerLocation, at)
+      else
+        CompleteInMember(func.Env, source, paren, func.Location, at);
+    }
+
+    CompleteInBody(methodBuilder : MethodBuilder, bodyInnerLocation : Location, at : Location) : NemerleCompletionResult
+    {
+      def result = RunCompletionEngine(methodBuilder, bodyInnerLocation, at);
+
+      if (result == null)
+      {
+        Trace.WriteLine("### RunCompletionEngine() return null!");
+        ExpressionDefaultKeywords
+      }
+      else
+        MakeCompletionList(result, true);
+    }
+
+    tryGetTypeEnforcementExpressionTokens(loc : Location, at : Location) : bool * list[Token]
+    {
+      // Get all tokens of method...
+      // Note: If method not wellformed it can take next methods
+      // tokens or no take body tokens.
+      def textLoc = Location(at.Source, if (loc.StartPos > at.StartPos) 0 else loc.StartPos, at.EndPos);
+      def lex = GetLexer(textLoc);
+      def toks = lex.ReadAllTokens(); // toks is array!
+      // Fing near (to completion point) token index...
+      mutable index = toks.FindIndex(
+        fun(x : Token)
+        {
+          def loc2 = x.Location;
+          def startPos = at.StartPos;
+          // loc2.IntersectsWith(loc) || loc.Line > line || loc.Line == line && loc.Column >= col
+          def res = loc2.IntersectsWith(startPos, startPos) || loc2.StartPos >= startPos;
+          when (res)
+          {
+            assert2(true);
+          }
+          res
+        });
+
+      // If last token is ":" we should unconditionally compete types.
+      if (index < 0 && toks.GetLast(null) is Token.Operator(":"))
+        (true, [])
+      else if (index < 0) // ":" not found
+        (false, [])
+      else // ":" found... process ompete...
+      {
+        // If last token location not on the completion point
+        // or completion point at the start of last token location
+        // we must ignore this token. Skip it...
+        def lastToc = toks[index].Location;
+        when (!lastToc.Contains(at) || lastToc.StartPos == at.StartPos)
+          index--; // Shift to the previos token location index...
+
+        def findColonToken(i, lst) : bool * list[Token]
+        { // scat tokens backward.
+          def tok = if (i < 0) null else toks[i];
+          match (tok)
+          {
+            | Operator(":")          => (true, lst)
+            | Operator(".")          => findColonToken(i - 1, tok :: lst)
+            | BeginBrace  | BeginQuote | BeginRound | CharLiteral | EndBrace
+            | EndQuote | EndRound | FloatLiteral | Operator | Semicolon | null | EndOfFile
+                                      => (false, []) // this tokens can't contains in type
+            | _                      => findColonToken(i - 1, tok :: lst)
+          }
+        }
+
+        if (index < 0)
+          (false, [])
+        else if (toks[index] is Keyword("override") || toks[index] is Keyword("using"))
+          (false, [toks[index]])
+        else
+          // Get list of completion tokens. It can be situated on the interval
+          // from colone token to toks[index]. If before toks[index] no
+          // colon token it is not type enforcement expression.
+          findColonToken(index, []);
+      }
+    }
+
+    ComplateInParsedTypeAst(loc : Location, env : GlobalEnv, at : Location) : NemerleCompletionResult
+    {
+      def completeTypeEnforcement(env : GlobalEnv, typeExpr : list[Token])
+      {
+        def loc = if (typeExpr is []) at.FromStart()
+                  else typeExpr.Head.Location + typeExpr.Last.Location;
+        def result = CompleteInTypeExpr(env, loc, at);
+        result
+      }
+
+      def completeOverrides()
+      {
+        def decl = this.Project.GetActiveDecl(at);
+
+        match (decl)
+        {
+          | Type(ast)      => // Retrive overrides.
+            def builder = ast.TypeBuilder;
+            match (builder.SuperClass())
+            {
+              | Some(typeInfo) =>
+                def virtMod = NemerleModifiers.VirtualityModifiers & ~NemerleModifiers.New;
+                def allOverrides = typeInfo.GetMembers(SR.BindingFlags.Instance
+                  | SR.BindingFlags.NonPublic
+                  | SR.BindingFlags.Public).FilterLazy(m => m.Attributes %&& virtMod);
+                def implemented = builder.GetMembers(SR.BindingFlags.Instance
+                  | SR.BindingFlags.NonPublic
+                  | SR.BindingFlags.Public
+                  | SR.BindingFlags.DeclaredOnly).FilterLazy(m =>
+                    m.Attributes %&& NemerleModifiers.Override);
+                def canOverride = allOverrides.ExcludeLazy(implemented);
+                def res = canOverride.MapToArray(e => CompletionElem(
+                  (if (e is IProperty) GlyphType.Property else GlyphType.Method) :> int,
+                  e.Name, "info not implemented", array[Elem.Member(e)],
+                  CompletionElemFlags.ForOverriding));
+                NemerleCompletionResult(res, null, false);
+
+              | _ => TopKeywords
+            }
+          | _               => TopKeywords
+        }
+      }
+
+      def (ok, tokens) = tryGetTypeEnforcementExpressionTokens(loc, at);
+
+      if (ok)
+        completeTypeEnforcement(env, tokens)
+      else if (tokens is [Keyword("override")])
+        completeOverrides()
+      else if (tokens is [Keyword("using")])
+      {
+        def decl = Project.GetActiveDecl(tokens.Head.Location.FromEnd());
+        CompleteInUsing(decl :> Decl.Using, at);
+      }
+      else TopKeywords
+    }
+
+    /// Try compile method body, find completion token and build completion list.
+    public RunCompletionEngine(method : MethodBuilder, bodyInnerLocation : Location, at : Location) : CompletionResult
+    {
+      def completion()
+      {
+        def lexer = GetCompletionLexer(bodyInnerLocation, at.StartPos);
+        _ = ParseMethodBody(method, lexer);
+        method.RunBodyTyper();
+      }
+      InterceptCompletionResult(completion)
+    }
+
+    InterceptCompletionResult(completionFunc : void -> void) : CompletionResult
+    {
+      try
+      {
+        _comlitionLocation        = Location.Default;
+        _isCompletionInProgress   = true;
+        _completionParameterNames = [];
+        _currentMessages          = SCG.List(32);
+
+        mutable completionResult  = null;
+
+        try
+        {
+          completionFunc();
+          unless (_completionParameterNames.IsEmpty)
+            completionResult = CompletionResult(
+              SCG.List(_completionParameterNames.Map(n => Elem.Simple(n, "named parameter", 0))),
+              _completionPattern, _completionLocation, false);
+        }
+        catch
+        {
+          | e is CompletionResult =>
+            completionResult = e;
+            _comlitionLocation = e.Location;
+
+          | e => Trace.WriteLine (e.Message);
+        }
+
+        _currentMessages = null;
+
+        completionResult
+      }
+      finally
+      {
+        _isCompletionInProgress   = false;
+        _completionParameterNames = [];
+        CompletionPos             = -1;
+      }
+    }
+
+    public CompleteInTypeExpr(
+      [NotNull] env                : GlobalEnv,
+                methodBodyLocation : Location,
+                at                 : Location,
+                typeBuilder        : TypeBuilder = null,
+    )
+      : NemerleCompletionResult
+    {
+        def result = CompleteType(env, methodBodyLocation, at, typeBuilder);
+
+        if (result == null)
+        {
+          Trace.WriteLine("### RunCompletionEngine() (type enforcement completion) return null!");
+          TopKeywords
+        }
+        else MakeCompletionList(result)
+    }
+
+    public CompleteInMember(
+      [NotNull] env                : GlobalEnv,
+      [NotNull] source             : IIdeSource,
+      [NotNull] parentType         : TypeBuilder,
+                methodLocation     : Location,
+                at                 : Location
+    )
+      : NemerleCompletionResult
+    {
+      try
+      {
+        def typeImplemented(env, implemented : list[PExpr])
+        {
+          foreach (impl in implemented)
+          {
+            match (impl)
+            {
+              | PExpr.Member(obj, Splicable.HalfId(name)) =>
+                def ty = env.BindFixedType(obj);
+                if (ty.IsInterface)
+                {
+                  def ti = ty.TypeInfo;
+                  def elems = SCG.List();
+                  def members = ti.LookupMember(name.Id, true);
+
+                  foreach (m in members)
+                    elems.Add(Elem.Member(m));
+
+                  when (elems.Count > 0)
+                    throw CompletionResult(elems, name.Id, name.Location, true);
+                }
+                else
+                  _ = env.BindFixedType(impl);
+
+              | PExpr.Member(expr, _)
+              | PExpr.ToComplete as expr => _ = env.BindFixedType(expr)
+              | _ => ()
+            }
+          }
+        }
+
+        _isCompletionInProgress   = true;
+        _completionParameterNames = [];
+
+        def lexer = GetCompletionLexer(methodLocation, at);
+        //TODO: заменить "class" на распознование реального типа из parentType!
+        def members = MainParser.ParseMember(env, lexer, "class");
+
+        if (members != null && members.Count > 0)
+        {
+          match (members.NLast())
+          {
+            | Function as func =>
+              def bulder = MethodBuilderEx(parentType, func);
+              typeImplemented(env, bulder.Ast.ParsedImplemented);
+
+            | Property as prop =>
+              def bulder = PropertyBuilder(parentType, prop);
+              typeImplemented(env, bulder.Ast.ParsedImplemented);
+
+            | Field as field =>
+              _ = FieldBuilder(parentType, field);
+
+            //TODO: реализовать создание билдеров для всех типов членов!
+            | _ => ()
+          }
+
+          def keywords = match (members[0])
+            {
+              | Function         => ["where", "implements"]
+              | Property | Field => ["implements"] // Field can be not finished Property.
+              | _                => TopKeywordsStrs
+            };
+
+          StrsToCompletionElems(keywords, GlyphType.Snippet :> int, "keyword")
+        }
+        else TopKeywords
+
+      }
+      catch { | e is CompletionResult => _comlitionLocation = e.Location; MakeCompletionList(e) }
+      finally { _isCompletionInProgress = false; _completionParameterNames = []; }
+    }
+
+    public CompleteType(
+      [NotNull] env                : GlobalEnv,
+                methodBodyLocation : Location,
+                at : Location,
+                typeBuilder        : TypeBuilder = null,
+    )
+      : CompletionResult
+    {
+        def completion()
+        {
+          def lexer = GetCompletionLexer(methodBodyLocation, at.StartPos);
+          def pExprs = MainParser.ParseCommaSeparatedExprList(env, lexer, false);
+          foreach (pExpr in pExprs)
+          {
+            def x =
+              if (typeBuilder == null)
+                env.BindFixedType(pExpr) //FixMe: Надо использовать BindType (не Mono)!
+              else
+                typeBuilder.BindFixedType(pExpr);
+
+            _ = x;
+          }
+        }
+
+        InterceptCompletionResult(completion)
+    }
+
+    internal ParseMethodBody(method : MethodBuilder, lexer : Lexer) : FunBody.Parsed
+    {
+      def header = method.GetHeader();
+      def env    = if (method.Env != null) method.Env else method.DeclaringType.GlobalEnv;
+      def body   = FunBody.Parsed(MainParser.ParseExpr(env, lexer, method.Ast.header));
+
+      header.body = body;
+      body
+    }
+
+    /// Get lexer for some range in source file. The range specified by loc parameter. Note: All locations strat at start point of loc.
+    public GetLexer(loc : Location) : Lexer
+    {
+      def lexer  = LexerCompletion(this, loc, -1);
+      lexer.Keywords = lexer.Manager.CoreEnv.Keywords;
+      lexer
+    }
+
+    public GetCompletionLexer(bodyInnerLocation : Location, at : Location) : Lexer
+    {
+      def completionMarkPos = at.StartPos;
+      GetCompletionLexer(bodyInnerLocation, completionMarkPos);
+    }
+
+    public GetCompletionLexer(bodyInnerLocation : Location, completionMarkPos : int) : Lexer
+    {
+      CompletionPos  = completionMarkPos;
+      def lexer      = LexerCompletion(this, bodyInnerLocation, completionMarkPos);
+      lexer.Keywords = lexer.Manager.CoreEnv.Keywords;
+      lexer
+    }
+
+    static UsingLen          : int = 5;
+
+    /// Complete word inside the using directive.
+    CompleteInUsing(us : Decl.Using, at : Location) : NemerleCompletionResult
+    {
+      def loc = us.Location;
+
+      if (us.Name is []) // using directive with empty namspace name
+      {
+        if (at.StartPos <= loc.StartPos + UsingLen)
+          TopKeywords // completion on "using" keyword
+        else
+        {
+          def topNs = us.BeforeEnv.NameTree.NamespaceTree;
+          def resalt = SCG.List();
+          foreach (ns in us.BeforeEnv.OpenNamespaces)  // VladD2: Похоже тут надо использовать
+            GetCompletionElems(resalt, ns, null, false);
+          GetCompletionElems(resalt, topNs, null, false);
+          NemerleCompletionResult(resalt.ToArray(), us.BeforeEnv, false);
+        }
+      }
+      else
+      {
+        def first = us.NameLocations.Head;
+
+        //TODO: Use lexer.ReadAllTokens() to compute all type tokens!
+        def bodyLoc = Location(first.Source, first.StartPos, at.EndPos);
+        def result  = CompleteInTypeExpr(us.BeforeEnv, bodyLoc, at);
+        result
+      }
+    }
+  } // end class Engine
+} // end namespace

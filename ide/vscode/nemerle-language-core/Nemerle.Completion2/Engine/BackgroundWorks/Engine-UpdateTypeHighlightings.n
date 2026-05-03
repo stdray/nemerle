@@ -1,0 +1,153 @@
+using System;
+using System.IO;
+using System.Diagnostics;
+using Nemerle.Assertions;
+using Nemerle.Collections;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Utils;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Compiler.Utils.Async;
+using Nemerle.Completion2;
+using Nemerle.Imperative;
+using Nemerle.Surround;
+using Nemerle.Utility;
+
+using Typed = Nemerle.Compiler.Typedtree;
+using SCG = System.Collections.Generic;
+using SR = System.Reflection;
+
+namespace Nemerle.Completion2
+{
+  internal partial class Engine
+  {
+    public BeginUpdateTypeHighlightings(source : IIdeSource) : UpdateTypeHighlightingsAsyncRequest
+    {
+      def request = UpdateTypeHighlightingsAsyncRequest(AsyncRequestType.UpdateTypeHighlightings, this, source, UpdateTypeHighlightings);
+      AsyncWorker.AddWork(request);
+      request
+    }
+
+    private UpdateTypeHighlightings(request : AsyncRequest) : void
+    {
+      AsyncWorker.CheckCurrentThreadIsTheAsyncWorker();
+
+      surroundwith (currentAsyncRequest)
+      try
+      {
+        def snapshot = request.GetSourceSnapshot();
+        if (IsBuildTypesTreeInProgress)
+          AsyncWorker.AddWork(request);
+        else
+        {
+          def project = CheckProjectAvailable(request);
+
+          when (project != null)
+          {
+            UpdateTypeHighlightings(request.Source, snapshot);
+            request.MarkAsCompleted();
+          }
+        }
+      }
+      catch
+      { | e is CompilationAbortedException =>
+          def msg = $"The UpdateTypeHighlightings operation aborted at: $(e.Message)";
+          throw CompilationAbortedException(msg, e);
+      }
+    }
+
+    CollectTypeHighlightings(compileUnit : CompileUnit) : SCG.List[Location]
+    {
+      def result = SCG.List.[Location]();
+      when (compileUnit == null)
+        return result;
+      CollectTypeHighlightings(compileUnit.TopDeclarations, compileUnit.Source.FileIndex, result);
+      result.Sort();
+      result
+    }
+
+    CollectTypeHighlightings(topDeclarations : list[TopDeclaration], fileIndex : int, result : SCG.List[Location]) : void
+    {
+      def doWalk(info)
+      {
+        match (info.Node)
+        {
+          | PExpr.Ref as r
+          | PExpr.Member(_, Splicable.Name as r) =>
+            match (r.TypedObject)
+            {
+              | _ is FixedType
+              | _ is Namespace => result.Add(r.Location);
+              | _ => ()
+            }
+
+          | _ => ()
+        }
+      }
+      def walk = ExprWalker().Walk(_, doWalk);
+
+      foreach (topDeclaration when topDeclaration.Location.FileIndex == fileIndex in topDeclarations)
+      {
+        def types = topDeclaration.GetTypeReferences();
+        foreach (type in types)
+          walk(type);
+
+        CollectTypeHighlightings(topDeclaration.GetAllInnerTypes(), fileIndex, result);
+      }
+    }
+
+    UpdateTypeHighlightings(pExpr : PExpr) : void
+    {
+      def source = _callback.GetSource(pExpr.Location.FileIndex);
+      when (source?.HasView)
+      {
+        def result = CollectTypeHighlightings(pExpr);
+        def loc    = pExpr.Location;
+        AsyncWorker.AddResponse(() => source.SetMethodsTypeHighlighting(loc, result, loc.Source.Version));
+      }
+    }
+
+    CollectTypeHighlightings(pExpr : PExpr) : SCG.List[Location]
+    {
+      def result = SCG.List();
+
+      def doWalk(info)
+      {
+        match (info.Node)
+        {
+          | PExpr.Ref as r
+          | PExpr.Member(_, Splicable.Name as r) when r.TypedObject != null
+          | PExpr.Member as r => //when r.TypedObject is Typed.Pattern.Application
+            match (r.TypedObject)
+            {
+              | _ is FixedType
+              | _ is Namespace => result.Add(r.Location);
+              | _ is Typed.Pattern.Application => result.Add(r.Location);
+              | Typed.TExpr.StaticRef as t =>
+                when ((t.mem.MemberKind :> SR.MemberTypes) == SR.MemberTypes.Constructor)
+                {
+                  if (r is PExpr.Member as m)
+                    result.Add(m.member.Location);
+                  else
+                    result.Add(r.Location);
+                }
+
+              | _ => ()
+            }
+
+          | _ => ()
+        }
+      }
+      def walk = ExprWalker().Walk(_, doWalk);
+      walk(pExpr);
+      result
+    }
+
+    UpdateTypeHighlightings(ideSource : IIdeSource, source : SourceSnapshot) : void
+    {
+      def version           = source.Version;
+      def compileUnit       = Project.CompileUnits[source.FileIndex];
+      def typeHighlightings = CollectTypeHighlightings(compileUnit);
+      AsyncWorker.AddResponse(() => ideSource.SetTypeHighlighting(typeHighlightings, version));
+    }
+  } // end class Engine
+} // end namespace

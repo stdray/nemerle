@@ -1,0 +1,57 @@
+<Project>
+  <PropertyGroup>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Nemerle.Language.Core</AssemblyName>
+    <RootNamespace>Nemerle.Compiler.Utils</RootNamespace>
+    <NoStdLib>true</NoStdLib>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(Nemerle)\Nemerle.dll">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="$(Nemerle)\Nemerle.Compiler.dll">
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="*.n" />
+    <Compile Include="AstUtils\*.n" />
+    <Compile Include="Async\*.n" />
+    <Compile Include="Async\AsyncRequest\*.n" />
+    <Compile Include="CompilerMessage\*.n" />
+    <Compile Include="Hints\*.n" />
+    <Compile Include="Nemerle.Completion2\*.n" />
+    <Compile Include="Nemerle.Completion2\CodeFormatting\*.n" />
+    <Compile Include="Nemerle.Completion2\CodeModel\*.n" />
+    <Compile Include="Nemerle.Completion2\CodeModel\MethodTipInfo\*.n" />
+    <Compile Include="Nemerle.Completion2\CompilerConcreteDefinitions\*.n" />
+    <Compile Include="Nemerle.Completion2\CompilerConcreteDefinitions\Factories\*.n" />
+    <Compile Include="Nemerle.Completion2\Debug\*.n" />
+    <Compile Include="Nemerle.Completion2\Engine\*.n" />
+    <Compile Include="Nemerle.Completion2\Engine\BackgroundWorks\*.n" />
+    <Compile Include="Nemerle.Completion2\TextManagement\*.n" />
+  </ItemGroup>
+
+  <Import Project="$(Nemerle)\Nemerle.Sdk.targets" />
+</Project>

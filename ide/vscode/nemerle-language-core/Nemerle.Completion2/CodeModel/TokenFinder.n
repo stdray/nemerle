@@ -1,0 +1,148 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+
+using Nemerle.Compiler;
+using Nemerle.Compiler.Utils;
+using Nemerle.Imperative;
+using Nemerle.Utility;
+
+namespace Nemerle.Completion2
+{
+  class TokenFinder
+  {
+    mutable _at            : Location;
+    mutable _counter       : int;
+    mutable _retObject     : object;
+    mutable _retLocation   : Location;
+    mutable _stop          : bool;
+    [Accessor] mutable _tokensStack : List[Token];
+
+    #region Find Token
+
+    public Find(root : Token, at : Location) : List[Token]
+    {
+      Init(at);
+
+      _ = Go(root, []);
+
+      _tokensStack
+    }
+
+    Go(token : Token, stack : list[Token]) : list[Token]
+    {
+      when (_stop || token == null)
+        return stack;
+
+      _counter++;
+      //TODO: Revrite it class. Remove newStack.
+      mutable newStack =
+        match (token)
+        {
+          | RoundGroup (child, _, _)    // {         Child : Token; } // ( ... )
+          | BracesGroup(child, _, _, _) // {         Child : Token; } // { ... }
+          | SquareGroup(child, _, _)    // { mutable Child : Token; } // [ ... ]
+          | QuoteGroup (child, _, _)    // {         Child : Token; } // <[ ... ]>
+          | LooseGroup (child)    // { mutable Child : Token; } // ; ... ;
+          | Namespace(_, _, child, _, _) => // { Env : GlobalEnv; Body : Token; }
+            def res = Go(child, token :: stack);
+            when (_stop)
+              _tokensStack.Add(token);
+            res
+
+          | _ => stack
+        };
+
+      _counter--;
+
+      unless (_stop)
+      {
+        _stop = IsIn(token.Location);
+
+        if (_stop)
+          _tokensStack.Add(token);
+        else
+        {
+          newStack = Go(token.Next, newStack);
+          when (_stop)
+            _tokensStack.Add(token);
+        }
+      }
+
+      if (_stop) newStack else stack
+    }
+
+    Go(token : Token, predicate : Token -> bool, stack : list[Token]) : list[Token]
+    {
+      when (_stop || token == null)
+        return stack;
+
+      _counter++;
+
+      mutable newStack = match (token)
+      {
+      | RoundGroup   (child, _, _)    // {         Child : Token; } // ( ... )
+      | BracesGroup  (child, _, _, _) // {         Child : Token; } // { ... }
+      | SquareGroup  (child, _, _)    // { mutable Child : Token; } // [ ... ]
+      | QuoteGroup   (child, _, _)    // {         Child : Token; } // <[ ... ]>
+      | LooseGroup   (child)    // { mutable Child : Token; } // ; ... ;
+      | Namespace(_, _, child, _, _) => // { Env : GlobalEnv; Body : Token; }
+
+        if (_stop)
+          stack
+        else
+        {
+          _stop = predicate(token) && IsAfter(token.Location);
+
+          if (_stop)
+            token :: stack
+          else
+            Go(child, predicate, token :: stack);
+        }
+      | _ => stack
+
+      }
+
+      _counter--;
+
+      unless (_stop)
+      {
+        _stop = predicate(token) && IsAfter(token.Location);
+
+        unless (_stop)
+          newStack = Go(token.Next, predicate, newStack);
+      }
+
+      if (_stop) (newStack) else (stack);
+    }
+
+    #endregion
+
+    #region Helpers
+
+    Init(at : Location) : void
+    {
+#if PRINT_AST && DEBUG
+      Trace.WriteLine($"\nStart at: $line:$col.");
+#endif
+      _tokensStack = List();
+      _at          = at;
+      _counter     = 0;
+      _stop        = false;
+      _retObject   = null;
+      _retLocation = Location.Default;
+    }
+
+    IsIn(location : Location) : bool
+    {
+      location.Contains(_at);
+    }
+
+    IsAfter(location : Location) : bool
+    {
+      location.StartPos > _at.StartPos
+    }
+
+    #endregion
+  }
+}

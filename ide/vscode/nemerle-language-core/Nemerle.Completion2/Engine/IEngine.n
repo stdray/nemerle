@@ -1,0 +1,60 @@
+﻿using Nemerle.Compiler;
+using Nemerle.Compiler.Utils.Async;
+using Nemerle.Compiler.Utils;
+
+using System;
+using System.CodeDom;
+using System.CodeDom.Compiler;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace Nemerle.Completion2
+{
+  public interface IIdeEngine : IEngine
+  {
+    /// Load or reload all information about project and build the Types Tree.
+    /// Reloaded: defines, references, project options and reparse all projet files.
+    BeginReloadProject() : AsyncRequest;
+    /// Build the Types Tree witout reload information obout project.
+    BeginBuildTypesTree() : AsyncRequest;
+    /// Build types tree if IsNeedBuildTypesTree flag is set to True.
+    ProcessPendingTypesTreeRequest() : void;
+    RequestOnReloadProject() : void;
+
+    /// Cal this method when file changed in editor.
+    BeginUpdateCompileUnit(source : IIdeSource, changes : IChanges) : AsyncRequest;
+    /// Get information for display hint (in IDE).
+    BeginGetQuickTipInfo(source : IIdeSource, at : Location) : QuickTipInfoAsyncRequest;
+
+    IsProjectAvailable : bool { get; };
+
+    GetSource(fileIndex : int) : IIdeSource;
+    Close() : void;
+    event TypedtreeCreated : EventHandler;
+    TypesTreeVersion : int { get; }
+    GenerateCode(member : IMember, fileIndex : int, writer : System.IO.TextWriter) : GotoInfo;
+    Completion(source : IIdeSource, at : Location, importCompletion : bool) : CompletionAsyncRequest;
+    BeginUpdateTypeHighlightings(source : IIdeSource) : UpdateTypeHighlightingsAsyncRequest;
+    BeginGetMethodTipInfo(source : IIdeSource, at : Location) : MethodTipInfoAsyncRequest;
+    GetGotoInfo(source : IIdeSource, at : Location, kind : GotoKind) : array[GotoInfo];
+    GetGotoInfoForMember(memberName : string, forPartialName : bool, kind : GotoKind) : array[GotoInfo];
+    ParseCompileUnit(source : IIdeSource) : CompileUnit;
+    IsDefaultEngine : bool { get; }
+    BeginFindUnimplementedMembers(source : IIdeSource, at : Location) : CodeInfoAsyncRequest;
+    BeginFindMethodsToOverride(source : IIdeSource, at : Location) : CodeInfoAsyncRequest;
+    BeginHighlightUsages(source : IIdeSource, at : Location) : CodeInfoAsyncRequest;
+    BeginFindAllSymbols(pattern : string, callback : object) : void;
+    GetInheritorsGotoInfo(source : IIdeSource, at : Location) : array[GotoInfo];
+    RequestOnInitEngine() : bool;
+    GetActiveEnv(fileIndex : int, line : int) : GlobalEnv * TypeBuilder * int * int;
+    SetTextCursorLocation(at : Location) : void;
+    OnIdle() : void;
+
+    IsExtensionRegistered(fileExtension : string) : bool;
+
+    NotifySourceChanged(source : SourceSnapshot) : void;
+    NotifySourceDeleted(fileIndex : int) : void;
+    HasSourceChangedSubscribers(fileIndex : int) : bool;
+  }
+}

@@ -1,0 +1,38 @@
+using System;
+using System.Collections.Generic;
+
+using Nemerle.Assertions;
+using Nemerle.Compiler;
+using Nemerle.Utility;
+
+namespace Nemerle.Completion2
+{
+  public abstract class MethodTipInfo
+  {
+    public StartName      : Location { get; protected set; }
+    public DefaultMethod  : int      { get; protected set; }
+    public ParameterIndex : int      { get; protected set; }
+    public SourceVersion  : int      { get; protected set; }
+
+    public abstract GetCount() : int;
+    public abstract GetDescription(index : int) : string;
+    public abstract GetType(index : int) : string;
+    public abstract GetParameterCount(index : int) : int;
+    public abstract GetParameterInfo(index : int, mutable parameter : int) : string * string * string;
+    public abstract GetName(index : int) : string;
+
+    public HasTip : bool
+    {
+      get { StartName.EndLine > 0 }
+    }
+
+    protected Init(
+      [NotNull] nameToken        : Token.Identifier,
+      [NotNull] paramsGroupToken : Token.RoundGroup
+    ) : string
+    {
+      StartName = nameToken.Location + paramsGroupToken.Location;
+      nameToken.name
+    }
+  }
+}

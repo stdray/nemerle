@@ -1,0 +1,31 @@
+﻿using System;
+using System.Linq;
+using System.Threading;
+
+using Nemerle.Collections;
+using Nemerle.Completion2;
+using Nemerle.Utility;
+
+namespace Nemerle.Compiler.Utils.Async
+{
+  /// <summary>
+  /// Description of WorkRequest.
+  /// </summary>
+  public class FindAllSymbolsRequest : AsyncRequest
+  {
+    public this(
+      requestType : AsyncRequestType,
+      engine      : IIdeEngine,
+      work        : Action[AsyncRequest],
+      pattern     : string,
+      callback    : object)
+    {
+      base(requestType, engine, null, work);
+      Pattern  = pattern;
+      Callback = callback;
+    }
+
+    public Pattern  : string;
+    public Callback : object;
+  }
+}

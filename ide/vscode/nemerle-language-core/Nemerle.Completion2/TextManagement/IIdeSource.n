@@ -1,0 +1,26 @@
+﻿using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+
+using System;
+using System.Collections.Generic;
+
+namespace Nemerle.Completion2
+{
+  public interface IIdeSource : IDisposable
+  {
+    CompileUnit    : CompileUnit { get; set; }
+    HasView        : bool        { get }
+    FileIndex      : int         { get }
+    Version        : int         { get }
+
+    GetSourceSnapshot() : SourceSnapshot;
+
+    SetTypeHighlighting(list : List[Location], sourceVersion : int) : void;
+    SetMethodsTypeHighlighting(bodyLocation : Location, typeLocations : List[Location], sourceVersion : int) : void;
+    SetRegions(regions : IList[RegionInfo], sourceVersion : int) : void;
+    SetTopDeclarations(topDeclarations : array[TopDeclaration]) : void;
+    GetRegion(lineStart : int, colStart : int, lineEnd : int, colEnd : int) : string;
+    GetRegion(location : Location) : string;
+    GetLine(line : int) : string;
+  }
+}

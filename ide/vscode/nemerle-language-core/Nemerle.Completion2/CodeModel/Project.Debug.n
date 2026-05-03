@@ -1,0 +1,13 @@
+//using Nemerle.Completion2;
+
+namespace Nemerle.Completion2
+{
+  public partial class Project
+  {
+    public UpdateDebugTree(fileIndex : int) : void
+    {
+      // CompiledUnitAstBrowser removed (WinForms dependency)
+      _ = fileIndex;
+    }
+  }
+}

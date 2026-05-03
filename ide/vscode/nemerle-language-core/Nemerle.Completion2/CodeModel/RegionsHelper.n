@@ -1,0 +1,286 @@
+﻿using System;
+using System.Reflection;
+using System.Diagnostics;
+
+using Nemerle.Collections;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Compiler.Typedtree;
+using Nemerle.Compiler.Utils;
+
+using Nemerle.Assertions;
+using Nemerle.Imperative;
+using Nemerle.Utility;
+
+using SCG = System.Collections.Generic;
+
+namespace Nemerle.Completion2
+{
+  internal class RegionsHelper
+  {
+    static _commentChars = array['/','*'];
+
+    public static Collect(compileUnit : CompileUnit) : SCG.List[RegionInfo]
+    {
+      try { RegionsHelper(compileUnit)._regions }
+      catch
+      { | _ =>
+        Debug.WriteLine("Bad implementation of process regions!");
+        SCG.List()
+      }
+    }
+
+    _compileUnit : CompileUnit;
+    _regions     : SCG.List[RegionInfo];
+    _source      : SourceSnapshot;
+
+    mutable _afterUsingLine : int;
+            _fileIndex      : int;
+            _sourceVersion  : int;
+
+    private this(compileUnit : CompileUnit)
+    {
+      _compileUnit    = compileUnit;
+      _regions        = SCG.List(256);
+      _source         = compileUnit.Source;
+      _afterUsingLine = int.MaxValue;
+
+      foreach (r in compileUnit.Regions)
+      {
+        def text   = r.Text.Trim();
+        def banner = if (text.IsNullOrEmpty()) "#region" else text;
+
+        AddHiddenRegion(r.Location, banner, false);
+      }
+
+      foreach (commentLoc in compileUnit.CommentLocations)
+      {
+        try
+        {
+          // TODO: Объеденять однострочные коменты идущие друг за другом, если на этих строках нет кода.
+          def (loc, _isMultiline) = commentLoc;
+          when (loc.EndLine > loc.Line + 2)
+            AddHiddenRegion(loc, loc.GetText() + "..." , false);
+        }
+        catch { | _ => Debug.WriteLine("Bad implementation of process comment regions!"); }
+      }
+
+      try
+      {
+        ProcessDecls(compileUnit.TopNamespace.Decls);
+      }
+      catch { | _ => Debug.WriteLine("Bad implementation of process declaration regions!"); }
+    }
+
+    private AddHiddenRegion(location : Location, isExpanded : bool) : void
+    {
+      AddHiddenRegion(location, null, isExpanded);
+    }
+
+    private AddHiddenRegion(loc : Location, text : string, isExpanded : bool) : void
+    {
+      when (!loc.IsEmpty && loc.Line < loc.EndLine)
+        _regions.Add(RegionInfo(loc, text, isExpanded));
+    }
+
+    CheckLine(line : int) : void
+    {
+      when (_afterUsingLine > line)
+        _afterUsingLine = line;
+    }
+
+    AddRegion(loc : Location, isExpanded : bool) : void
+    {
+      when (!loc.IsEmpty)
+      {
+        AddHiddenRegion(loc, null, isExpanded);
+        CheckLine(loc.Line);
+      }
+    }
+
+    ProcessMatchCases(cases : list[PMatchCase]) : void
+    {
+      def addExect(athis, case)
+      {
+        athis.AddHiddenRegion(case.ArrowLocation.FromEnd() + case.BodyLocation, false)
+      }
+
+      def len = cases.Length;
+
+      if (len == 1)
+        addExect(this, cases.Head);
+      else when (len > 1)
+      {
+        def nextCaseLocList = cases.Tail.MapToArray(c => c.PatternsLocation);
+        foreach (case in cases with i)
+        {
+          if (i + 1 == len)
+            addExect(this, case);
+          else
+          {
+            def nextCaseLoc = nextCaseLocList[i];
+            def endLine     = nextCaseLoc.Line - 1;
+            def arrowLoc    = case.ArrowLocation;
+            def source      = arrowLoc.Source;
+
+            when (endLine > arrowLoc.Line) // if case not contains in single line...
+              AddHiddenRegion(Location(source, arrowLoc.EndPos, source.LineColumnToPosition(nextCaseLoc.Line, 1)), false);
+          }
+        }
+      }
+    }
+
+    ProcessExpr(pExpr : PExpr) : void
+    {
+      ExprWalker().Walk(pExpr,
+      fun(info : ExprWalkInfo)
+      {
+        match (info.Node)
+        {
+          | PExpr.Sequence as seq when seq : object != pExpr =>
+              AddRegion(seq.Location, true);
+
+          | PExpr.Lambda(decl) with funs=[decl]
+          | PExpr.DefFunctions(funs) => // { funs : list [FunctionDecl]; }
+
+            foreach (f in funs)
+              AddRegion(f.header.Location.FromEnd() + f.body.Location, false);
+
+          | PExpr.Match(expr, cases, _) as m =>
+            when (expr != null)
+              AddRegion(m.expr_loc.FromEnd() + m.Location.FromEnd(), true);
+
+            when (cases != null)
+              ProcessMatchCases(cases);
+
+          | <[ if ($_) $trueExpr else $faleExpr ]> when (trueExpr != null && faleExpr != null) =>
+              AddRegion(trueExpr.Location, true);
+              AddRegion(faleExpr.Location, true);
+
+          | <[ when ($_) $expr ]> | <[ unless ($_) $expr ]> =>
+            when (expr != null)
+              AddRegion(expr.Location, true);
+
+          | _ => ()
+        }
+      });
+    }
+
+    ProcessCustomAttributes(declarationBase : DeclarationBase) : void
+    {
+      AddHiddenRegion(declarationBase.modifiers.CustomAttributesLocation, "[custom attributes]",  false);
+    }
+
+    ProcessTopDeclaration(topDeclaration : TopDeclaration) : void
+    {
+      ProcessCustomAttributes(topDeclaration);
+
+      when (topDeclaration is TopDeclaration.Delegate || topDeclaration is TopDeclaration.Alias)
+        return;
+
+      // TODO: Collapse all attributes to their own region.
+      def loc = topDeclaration.HeaderLocation;
+      AddHiddenRegion(Location(loc.Source, loc.EndPos, topDeclaration.Location.EndPos), null, true);
+
+      CheckLine(topDeclaration.Location.Line);
+
+      // Get regions for members.
+
+      def isProcessed(m)
+      {
+        m.modifiers == null
+        || !(m.Attributes %&& (NemerleModifiers.SpecialName | NemerleModifiers.Abstract))
+      }
+
+      match (topDeclaration)
+      {
+				| TopDeclaration.Interface     (methods = decls)
+				| TopDeclaration.Class         (decls   = decls)
+				| Enum                         (decls   = decls)
+				| TopDeclaration.VariantOption (decls   = decls)
+				| TopDeclaration.Variant       (decls   = decls) =>
+					foreach (member in decls.Filter(isProcessed))
+					{
+						| TypeDeclaration(td) => ProcessTopDeclaration(td)
+						| Field
+						| Event
+						| EnumOption =>
+							ProcessCustomAttributes(member);
+							AddRegion(member.BodyLocation, true);
+						| Property as p => ProcessProperty(p)
+						| Function as f => ProcessFunction(f)
+					}
+				| _ => ()
+      }
+    }
+
+    ProcessFunction(func : ClassMember.Function) : void
+    {
+		  ProcessCustomAttributes(func);
+		  def headerLoc = func.header.Location;
+		  if (headerLoc == Location.Default)
+			  AddRegion(func.BodyLocation, true);
+			else
+			  AddRegion(headerLoc.FromEnd() + func.Location.FromEnd(), true);
+
+			when (func.body is FunBody.Parsed(expr))
+			  ProcessExpr(expr);
+    }
+
+    ProcessProperty(prop : ClassMember.Property) : void
+    {
+		  ProcessCustomAttributes(prop);
+		  if (prop.returnType == null)
+			  AddRegion(prop.BodyLocation, true);
+			else
+			  AddRegion(prop.returnType.Location.FromEnd() + prop.Location.FromEnd(), true);
+
+			when (prop.getter is Some(f))
+			  ProcessFunction(f);
+
+			when (prop.setter is Some(f))
+			  ProcessFunction(f);
+    }
+
+    ProcessDecls(decls : list[Decl]) : void
+    {
+      def usings = SCG.List();
+
+      foreach (decl in decls)
+      {
+				| Decl.Type(ast) => ProcessTopDeclaration(ast)
+				| Using as us => usings.Add(us); //when us.NameLocations.Exists(l => l.FileIndex == _fileIndex)
+				| Namespace(Decls = decls) as ns =>
+          ProcessDecls(decls);
+          AddHiddenRegion(ns.HeaderLocation.FromEnd() + ns.Location.FromEnd(), true);
+
+				| _ => ()
+      }
+
+      when (usings.Count > 1)
+      {
+        mutable usingLoc;
+
+        foreach (us in usings)
+        {
+          match (us.NameLocations.Find(l => l.FileIndex == _fileIndex))
+          {
+            | Some(loc) =>
+              usingLoc = if (usingLoc.IsEmpty) loc else usingLoc.Combine(us.Location);
+
+            | None      => ()
+          }
+        }
+
+        when (!usingLoc.IsEmpty)
+          AddHiddenRegion(Location(usingLoc.Source, usingLoc.StartPos, usingLoc.Source.GetSourceLine(usingLoc.EndPos).EndPos), null, false);
+      }
+    }
+
+    _debug(obj : object) : void
+    {
+      when (obj != null)
+        ignore(obj.ToString());
+    }
+  }
+}

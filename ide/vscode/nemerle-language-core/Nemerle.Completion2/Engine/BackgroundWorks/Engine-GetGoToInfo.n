@@ -1,0 +1,91 @@
+using System;
+using System.IO;
+using System.Diagnostics;
+using SCG = System.Collections.Generic;
+using Nemerle.Assertions;
+using Nemerle.Collections;
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Compiler.Utils.Async;
+using Nemerle.Imperative;
+using Nemerle.Surround;
+using Nemerle.Utility;
+
+using Nemerle.Compiler.Utils;
+using Typed = Nemerle.Compiler.Typedtree;
+using SR = System.Reflection;
+using Nemerle.Completion2;
+
+namespace Nemerle.Completion2
+{
+  internal partial class Engine
+  {
+    public BeginGetGotoInfo(source : IIdeSource, at : Location, kind : GotoKind) : GotoInfoAsyncRequest
+    {
+      def request = GotoInfoAsyncRequest(AsyncRequestType.GetGotoInfo, this, source, GetGotoInfo, at, kind);
+      request.GotoInfos = array(0);
+      AsyncWorker.AddWork(request);
+      request
+    }
+
+    public GetGotoInfo(source : IIdeSource, at : Location, kind : GotoKind) : array[GotoInfo]
+    {
+      def request = BeginGetGotoInfo(source, at, kind);
+      _ = request.AsyncWaitHandle.WaitOne(); //10_000
+      request.GotoInfos
+    }
+
+    public GenerateCode(member : IMember, fileIndex : int, writer : System.IO.TextWriter) : GotoInfo
+    {
+			def type               = if (member is TypeInfo as type) type else member.DeclaringType;
+      def nameAndGenericArgs = type.Name + if (type.TypePparms.Length > 0) "[..$type.TypePparms]" else "";
+      def typeInfo           = Lookup(nameAndGenericArgs);
+      def generator          = SourceGenerator(fileIndex, writer, member);
+      Debug.Assert(null != typeInfo, $"type $(type.FullName) not found");
+      generator.WriteTypeDeclaration(typeInfo);
+      GotoInfo(generator.Location);
+    }
+
+    private GetGotoInfo(request : AsyncRequest) : void
+    {
+      AsyncWorker.CheckCurrentThreadIsTheAsyncWorker();
+      def sourceSnapshot = request.GetSourceSnapshot();
+
+      surroundwith (currentAsyncRequest)
+      try
+      {
+        if (IsBuildTypesTreeInProgress)
+          AsyncWorker.AddWork(request);
+        else
+        {
+          def project = this.Project;
+
+          if (project == null)
+          {
+            _ = BeginBuildTypesTree();
+            AsyncWorker.AddWork(request);
+          }
+          else
+          {
+            def req = request :> GotoInfoAsyncRequest;
+            req.GotoInfos =
+              match (req.Kind)
+              {
+                | Definition          => project.GetDefinition(req.At);
+                | Usages              => project.GetUsages    (req.At);
+                | UsagesInCurrentFile => project.GetUsages    (req.At); //!!!
+                | _                   => array(0)
+              };
+
+            request.MarkAsCompleted();
+          }
+        }
+      }
+      catch
+      { | e is CompilationAbortedException =>
+          def msg = $"The GetGotoInfo operation aborted at: $(e.Message)";
+          throw CompilationAbortedException(msg, e);
+      }
+    }
+  } // end class Engine
+} // end namespace
