@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Nemerle.LanguageServer.Tests</AssemblyName>
+    <RootNamespace>Nemerle.LanguageServer.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</NemerleBin>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" />
+    <PackageReference Include="AwesomeAssertions" Version="8.0.2" />
+    <PackageReference Include="coverlet.collector" Version="6.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\nemerle-language-server\Nemerle.LanguageServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Nemerle.Macros">
+      <HintPath>$(NemerleBin)\Nemerle.Macros.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="TestCases\**\*.n">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>
