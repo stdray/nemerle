@@ -1,0 +1,126 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Nemerle",
+  "scopeName": "source.nemerle",
+  "fileTypes": [".n"],
+  "patterns": [
+    {
+      "name": "comment.line.double-slash.nemerle",
+      "begin": "//",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.nemerle" } },
+      "end": "$",
+      "patterns": [
+        { "include": "#xml-doc-comment" }
+      ]
+    },
+    {
+      "name": "comment.block.nemerle",
+      "begin": "/\\*",
+      "beginCaptures": { "0": { "name": "punctuation.definition.comment.nemerle" } },
+      "end": "\\*/",
+      "endCaptures": { "0": { "name": "punctuation.definition.comment.nemerle" } }
+    },
+    {
+      "name": "meta.preprocessor.nemerle",
+      "match": "^\\s*#\\s*(if|elif|else|endif|define|undef|region|endregion|line|error|warning|pragma)\\b.*$",
+      "captures": {
+        "1": { "name": "keyword.control.preprocessor.nemerle" }
+      }
+    },
+    {
+      "name": "constant.language.nemerle",
+      "match": "\\b(false|null|true)\\b"
+    },
+    {
+      "name": "constant.numeric.nemerle",
+      "match": "\\b(([0-9][0-9_]*(\\.[0-9][0-9_]*)?(e[+\\-]?[0-9]+)?(bf|bu|d|f|l|lu|m|sb|s|u|ub|ul)?)|(0[bBoOxX][0-9a-fA-F][0-9a-fA-F_]*))\\b"
+    },
+    {
+      "name": "keyword.control.nemerle",
+      "match": "\\b(break|catch|continue|else|finally|for|foreach|if|in|match|repeat|try|unless|when|while|do|return|yield|lock|checked|unchecked|throw|ignore)\\b"
+    },
+    {
+      "name": "keyword.operator.nemerle",
+      "match": "[-+*/%=<>!~&|^@.?:]+|->|&&|\\|\\|"
+    },
+    {
+      "name": "keyword.other.nemerle",
+      "match": "\\b(_|and|as|assert|async|base|callcomp|def|defcomp|ensures|expose|fun|get|implements|invariant|is|log|namespace|not|or|out|params|ref|requires|set|syntax|typeof|using|with|where|xml|yield)\\b"
+    },
+    {
+      "name": "storage.type.nemerle",
+      "match": "\\b(array|bool|byte|char|class|decimal|double|enum|float|int|interface|list|long|macro|module|object|sbyte|short|string|struct|type|uint|ulong|ushort|variant|void)\\b"
+    },
+    {
+      "name": "storage.modifier.nemerle",
+      "match": "\\b(abstract|comp|delegate|enumerable|event|extern|internal|mutable|new|override|public|private|protected|sealed|static|volatile|virtual|partial)\\b"
+    },
+    {
+      "name": "variable.language.nemerle",
+      "match": "\\bthis\\b"
+    },
+    {
+      "name": "string.quoted.double.nemerle",
+      "begin": "\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.nemerle" } },
+      "end": "\"",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.nemerle" } },
+      "patterns": [
+        { "name": "constant.character.escape.nemerle", "match": "\\\\(\\\\|'|\"|a|b|e|f|n|r|t|v|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})" }
+      ]
+    },
+    {
+      "name": "string.quoted.double.verbatim.nemerle",
+      "begin": "@\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.nemerle" } },
+      "end": "\"",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.nemerle" } },
+      "patterns": [
+        { "match": "\"\"", "name": "constant.character.escape.nemerle" }
+      ]
+    },
+    {
+      "name": "string.interpolated.nemerle",
+      "begin": "\\$\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.nemerle" } },
+      "end": "\"",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.nemerle" } },
+      "patterns": [
+        { "include": "#interpolation" },
+        { "name": "constant.character.escape.nemerle", "match": "\\\\(\\\\|'|\"|a|b|e|f|n|r|t|v|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})" }
+      ]
+    },
+    {
+      "name": "string.quoted.single.nemerle",
+      "begin": "'",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.nemerle" } },
+      "end": "'",
+      "endCaptures": { "0": { "name": "punctuation.definition.string.end.nemerle" } },
+      "patterns": [
+        { "name": "constant.character.escape.nemerle", "match": "\\\\(\\\\|'|\"|a|b|e|f|n|r|t|v|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})" }
+      ]
+    },
+    {
+      "name": "punctuation.definition.quotation.nemerle",
+      "match": "\\<\\[|\\]\\>"
+    }
+  ],
+  "repository": {
+    "xml-doc-comment": {
+      "name": "comment.block.documentation.nemerle",
+      "begin": "(///?|\\*\\*)",
+      "end": "$",
+      "patterns": [
+        { "name": "markup.other.tag.nemerle", "match": "<(summary|param|returns|remarks|exception|example|see|value)[^>]*>" }
+      ]
+    },
+    "interpolation": {
+      "name": "meta.interpolation.nemerle",
+      "begin": "\\{",
+      "end": "\\}",
+      "patterns": [
+        { "include": "$self" }
+      ]
+    }
+  }
+}

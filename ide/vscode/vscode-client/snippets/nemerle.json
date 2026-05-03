@@ -1,0 +1,82 @@
+{
+  "Class": {
+    "prefix": "class",
+    "body": ["class ${1:Name}", "{", "\t$0", "}"],
+    "description": "Class declaration"
+  },
+  "Module": {
+    "prefix": "module",
+    "body": ["module ${1:Name}", "{", "\t$0", "}"],
+    "description": "Module declaration"
+  },
+  "Variant": {
+    "prefix": "variant",
+    "body": ["variant ${1:Name}", "{", "\t| ${2:Case}", "\t| ${3:Case}", "}"],
+    "description": "Variant type declaration"
+  },
+  "Match": {
+    "prefix": "match",
+    "body": ["match (${1:expr})", "{", "\t| ${2:pattern} => ${3:body}", "\t| _ => ${4:body}", "}"],
+    "description": "Match expression"
+  },
+  "Function": {
+    "prefix": "fun",
+    "body": ["fun(${1:x}, ${2:y})", "{", "\t$0", "}"],
+    "description": "Lambda expression"
+  },
+  "Def": {
+    "prefix": "def",
+    "body": ["def ${1:name}(${2:args}) : ${3:retType}", "{", "\t$0", "}"],
+    "description": "Function definition"
+  },
+  "If": {
+    "prefix": "if",
+    "body": ["if (${1:condition})", "{", "\t${2:then}", "}", "else", "{", "\t${3:else}", "}"],
+    "description": "If-else statement"
+  },
+  "When": {
+    "prefix": "when",
+    "body": ["when (${1:condition})", "\t${2:body}"],
+    "description": "When guard"
+  },
+  "Unless": {
+    "prefix": "unless",
+    "body": ["unless (${1:condition})", "{", "\t${2:body}", "}"],
+    "description": "Unless block"
+  },
+  "While": {
+    "prefix": "while",
+    "body": ["while (${1:condition})", "{", "\t$0", "}"],
+    "description": "While loop"
+  },
+  "For": {
+    "prefix": "for",
+    "body": ["for (mutable ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++)", "{", "\t$0", "}"],
+    "description": "For loop"
+  },
+  "Foreach": {
+    "prefix": "foreach",
+    "body": ["foreach (${1:item} in ${2:collection})", "{", "\t$0", "}"],
+    "description": "Foreach loop"
+  },
+  "TryCatch": {
+    "prefix": "try",
+    "body": ["try", "{", "\t${1:body}", "}", "catch", "{", "\t| ${2:e} => ${3:handler}", "}", "finally", "{", "\t${4:cleanup}", "}"],
+    "description": "Try-catch-finally block"
+  },
+  "Using": {
+    "prefix": "using",
+    "body": ["using ${1:Namespace};"],
+    "description": "Using directive"
+  },
+  "Macro": {
+    "prefix": "macro",
+    "body": ["macro ${1:Name}(${2:args})", "{", "\t$0", "}"],
+    "description": "Macro declaration"
+  },
+  "Record": {
+    "prefix": "[Record]",
+    "body": ["[Record]", "class ${1:Name}", "{", "\tpublic ${2:Field} : ${3:Type};", "}"],
+    "description": "Record class"
+  }
+}
