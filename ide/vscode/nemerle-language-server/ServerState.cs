@@ -6,7 +6,7 @@ public class ServerState
 {
     private readonly Dictionary<string, OpenDocument> _documents = new();
     private readonly object _lock = new();
-    private readonly EngineHost _engine;
+    private EngineHost _engine;
     private readonly CompletionEngine _completionEngine;
     private string? _rootPath;
 
@@ -18,14 +18,42 @@ public class ServerState
 
     public void SetWorkspaceRoot(string? rootUri)
     {
+        var refs = new List<string>();
         if (rootUri != null && rootUri.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
                 _rootPath = Uri.UnescapeDataString(new Uri(rootUri).LocalPath);
+
+                if (Directory.Exists(_rootPath))
+                {
+                    var nprojFiles = Directory.GetFiles(_rootPath, "*.nproj", SearchOption.TopDirectoryOnly);
+                    if (nprojFiles.Length > 0)
+                    {
+                        foreach (var nproj in nprojFiles)
+                        {
+                            try
+                            {
+                                var info = NprojLoader.Load(nproj);
+                                refs.AddRange(NprojLoader.ResolveReferences(info));
+                            }
+                            catch { }
+                        }
+                    }
+
+                    // Also add boot-dnlib Nemerle refs (NOT System.* — those come from .NET 8 runtime)
+                    var compilerDir = System.IO.Path.GetDirectoryName(
+                        typeof(Nemerle.Compiler.ManagerClass).Assembly.Location)!;
+                    foreach (var dll in Directory.GetFiles(compilerDir, "Nemerle*.dll"))
+                        refs.Add(dll);
+                    foreach (var dll in Directory.GetFiles(compilerDir, "dnlib.dll"))
+                        refs.Add(dll);
+                }
             }
             catch { }
         }
+
+        _engine = new EngineHost(refs);
     }
 
     public void AddDocument(string uri, string text, int version)

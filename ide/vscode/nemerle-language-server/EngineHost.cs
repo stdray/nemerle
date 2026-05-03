@@ -4,10 +4,12 @@ namespace Nemerle.LanguageServer;
 
 public class EngineHost
 {
+    private readonly List<string> _referencePaths;
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
 
-    public EngineHost()
+    public EngineHost(IEnumerable<string>? referencePaths = null)
     {
+        _referencePaths = referencePaths?.ToList() ?? new List<string>();
         Directory.CreateDirectory(TempDir);
     }
 
@@ -17,7 +19,7 @@ public class EngineHost
 
         try
         {
-            var tempFile = Path.Combine(TempDir, $"__lsp_{Path.GetFileName(uri)}");
+            var tempFile = Path.Combine(TempDir, $"__lsp_{Guid.NewGuid():N}_{Path.GetFileName(uri)}");
             System.IO.File.WriteAllText(tempFile, text);
 
             try
@@ -36,9 +38,24 @@ public class EngineHost
                     EarlyExit = false
                 };
 
-                // Like HostedNcc: add compiler dir to library path
+                // Add compiler directory to library search paths (for Nemerle DLLs only)
                 var compilerDir = Path.GetDirectoryName(typeof(ManagerClass).Assembly.Location)!;
                 options.LibraryPaths.Add(compilerDir);
+
+                // Add user references from .nproj
+                foreach (var r in _referencePaths)
+                {
+                    if (!string.IsNullOrEmpty(r) && System.IO.File.Exists(r))
+                        options.References.Add(r);
+                }
+
+                // Add Nemerle core DLLs
+                foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll" })
+                {
+                    var path = Path.Combine(compilerDir, dll);
+                    if (System.IO.File.Exists(path) && !options.References.Contains(path))
+                        options.References.Add(path);
+                }
 
                 // Add source from temp file
                 options.Sources.Add(FileUtils.GetSource(tempFile));

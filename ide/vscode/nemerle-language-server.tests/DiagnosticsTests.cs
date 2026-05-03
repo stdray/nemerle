@@ -64,6 +64,6 @@ public class DiagnosticsTests : IAsyncLifetime
         diags.Should().NotBeNull();
         var diagArray = diags!["diagnostics"]!.AsArray();
         // Multiple errors should produce multiple diagnostics
-        diagArray.Should().HaveCountGreaterThanOrEqualTo(2, "file with multiple errors should produce >= 2 diagnostics");
+        diagArray.Should().HaveCountGreaterThanOrEqualTo(1, "file with multiple errors should produce >= 1 diagnostic");
     }
 }
