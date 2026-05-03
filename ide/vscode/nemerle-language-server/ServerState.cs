@@ -40,14 +40,6 @@ public class ServerState
                             catch { }
                         }
                     }
-
-                    // Also add boot-dnlib Nemerle refs (NOT System.* — those come from .NET 8 runtime)
-                    var compilerDir = System.IO.Path.GetDirectoryName(
-                        typeof(Nemerle.Compiler.ManagerClass).Assembly.Location)!;
-                    foreach (var dll in Directory.GetFiles(compilerDir, "Nemerle*.dll"))
-                        refs.Add(dll);
-                    foreach (var dll in Directory.GetFiles(compilerDir, "dnlib.dll"))
-                        refs.Add(dll);
                 }
             }
             catch { }
