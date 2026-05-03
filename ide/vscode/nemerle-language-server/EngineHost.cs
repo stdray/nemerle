@@ -1,16 +1,13 @@
-using System.Text.RegularExpressions;
 using Nemerle.Compiler;
 
 namespace Nemerle.LanguageServer;
 
 public class EngineHost
 {
-    private readonly List<string> _referencePaths;
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
 
-    public EngineHost(IEnumerable<string> referencePaths)
+    public EngineHost()
     {
-        _referencePaths = referencePaths.ToList();
         Directory.CreateDirectory(TempDir);
     }
 
@@ -20,7 +17,6 @@ public class EngineHost
 
         try
         {
-            // Write text to temp file so compiler can parse it
             var tempFile = Path.Combine(TempDir, $"__lsp_{Path.GetFileName(uri)}");
             System.IO.File.WriteAllText(tempFile, text);
 
@@ -40,22 +36,15 @@ public class EngineHost
                     EarlyExit = false
                 };
 
-                // Set the root namespace from the file name
-                options.RootNamespace = Path.GetFileNameWithoutExtension(tempFile);
+                // Like HostedNcc: add compiler dir to library path
+                var compilerDir = Path.GetDirectoryName(typeof(ManagerClass).Assembly.Location)!;
+                options.LibraryPaths.Add(compilerDir);
 
                 // Add source from temp file
                 options.Sources.Add(FileUtils.GetSource(tempFile));
 
                 var manager = new ManagerClass(options);
-                // Set thread-static instance (Nemerle uses this internally)
-                try
-                {
-                    typeof(Nemerle.Compiler.ManagerClass)
-                        .GetField("_instance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?
-                        .SetValue(null, manager);
-                }
-                catch { }
-
+                ManagerClass.Instance = manager;
                 manager.InitOutput(TextWriter.Null);
 
                 manager.MessageOccured += (_, msg) =>
@@ -82,10 +71,12 @@ public class EngineHost
     private static List<Diagnostic> ConvertToDiagnostics(List<string> messages)
     {
         var diags = new List<Diagnostic>();
-        var regex = new Regex(@"^(.*?)\((\d+),(\d+)(?:,(\d+),(\d+))?\):\s*(error|warning|hint)(?:\s*(\w+))?:\s*(.+)",
-            RegexOptions.Compiled);
-        var legacyRegex = new Regex(@"^(.*?):(\d+):(\d+):\s*(error|warning|hint):\s*(.+)",
-            RegexOptions.Compiled);
+        var regex = new System.Text.RegularExpressions.Regex(
+            @"^(.*?)\((\d+),(\d+)(?:,(\d+),(\d+))?\):\s*(error|warning|hint)(?:\s*(\w+))?:\s*(.+)",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+        var legacyRegex = new System.Text.RegularExpressions.Regex(
+            @"^(.*?):(\d+):(\d+):\s*(error|warning|hint):\s*(.+)",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
 
         foreach (var msg in messages)
         {

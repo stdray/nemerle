@@ -37,12 +37,19 @@ public class NemerleLanguageServer
     {
         _logger.Information("Server ready, waiting for requests");
 
+        var pendingTasks = new List<Task>();
+
         while (!ct.IsCancellationRequested)
         {
             try
             {
                 var request = await _transport.ReadRequestAsync(ct);
-                _ = HandleRequestAsync(request, ct);
+
+                var task = HandleRequestAsync(request, ct);
+                pendingTasks.Add(task);
+
+                // Clean up completed tasks
+                pendingTasks.RemoveAll(t => t.IsCompleted);
             }
             catch (EndOfStreamException)
             {
@@ -56,6 +63,19 @@ public class NemerleLanguageServer
             catch (Exception ex)
             {
                 _logger.Error(ex, "Error reading request");
+            }
+        }
+
+        // Wait for pending handlers to finish (with a timeout)
+        if (pendingTasks.Count > 0)
+        {
+            try
+            {
+                await Task.WhenAll(pendingTasks).WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (TimeoutException)
+            {
+                _logger.Warning("Some handlers did not complete within timeout");
             }
         }
     }
@@ -88,6 +108,8 @@ public class NemerleLanguageServer
     private async Task HandleInitializeAsync(LspRequest request, CancellationToken ct)
     {
         var initParams = ((JsonElement)request.Params!).Deserialize<InitializeParams>(_jsonOpts)!;
+        _logger.Information("Initialize: rootUri={RootUri}, rootPath={RootPath}, params={Params}",
+            initParams.RootUri, initParams.RootPath, request.Params!.ToString());
 
         var result = new InitializeResult
         {
@@ -105,6 +127,7 @@ public class NemerleLanguageServer
 
         await _transport.SendResponseAsync(request.Id, result, ct);
         _logger.Information("Initialized for root: {RootPath}", initParams.RootPath);
+        _state.SetWorkspaceRoot(initParams.RootUri ?? initParams.RootPath);
     }
 
     private Task HandleInitializedAsync(LspRequest request, CancellationToken ct)
@@ -116,6 +139,7 @@ public class NemerleLanguageServer
     private async Task HandleDidOpenAsync(LspRequest request, CancellationToken ct)
     {
         var p = ((JsonElement)request.Params!).Deserialize<DidOpenTextDocumentParams>(_jsonOpts)!;
+        _logger.Information("didOpen {Uri} version={Version}", p.TextDocument.Uri, p.TextDocument.Version);
         _state.AddDocument(p.TextDocument.Uri, p.TextDocument.Text, p.TextDocument.Version);
         await PublishDiagnosticsAsync(p.TextDocument.Uri, ct);
     }
@@ -165,12 +189,13 @@ public class NemerleLanguageServer
 
     private Task HandleShutdownAsync(LspRequest request, CancellationToken ct)
     {
+        _logger.Information("Shutdown requested");
         return _transport.SendResponseAsync(request.Id, null, ct);
     }
 
     private Task HandleExitAsync(LspRequest request, CancellationToken ct)
     {
-        Environment.Exit(0);
+        _logger.Information("Exit requested");
         return Task.CompletedTask;
     }
 

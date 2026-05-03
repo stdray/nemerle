@@ -26,6 +26,14 @@
       <HintPath>$(NemerleBin)\Nemerle.Compiler.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Nemerle.Macros">
+      <HintPath>$(NemerleBin)\Nemerle.Macros.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="dnlib">
+      <HintPath>$(NemerleBin)\dnlib.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Nemerle.Language.Core">
       <HintPath>..\nemerle-language-core\bin\Release\Nemerle.Language.Core.dll</HintPath>
       <Private>True</Private>

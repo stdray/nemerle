@@ -1,3 +1,5 @@
+using Nemerle.LanguageServer.ProjectSystem;
+
 namespace Nemerle.LanguageServer;
 
 public class ServerState
@@ -5,10 +7,23 @@ public class ServerState
     private readonly Dictionary<string, OpenDocument> _documents = new();
     private readonly object _lock = new();
     private readonly EngineHost _engine;
+    private string? _rootPath;
 
     public ServerState()
     {
-        _engine = new EngineHost(Enumerable.Empty<string>());
+        _engine = new EngineHost();
+    }
+
+    public void SetWorkspaceRoot(string? rootUri)
+    {
+        if (rootUri != null && rootUri.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                _rootPath = Uri.UnescapeDataString(new Uri(rootUri).LocalPath);
+            }
+            catch { }
+        }
     }
 
     public void AddDocument(string uri, string text, int version)
@@ -48,10 +63,6 @@ public class ServerState
 
     public Task<List<CompletionItem>> GetCompletionAsync(string uri, Position position)
     {
-        var doc = GetDocument(uri);
-        if (doc == null) return Task.FromResult(new List<CompletionItem>());
-
-        // Stub completion for now — engine completion requires full IntelliSense init
         var items = new List<CompletionItem>
         {
             new() { Label = "def", Kind = CompletionItemKind.Keyword, Detail = "Define a function or value", InsertText = "def $0" },
@@ -65,7 +76,6 @@ public class ServerState
             new() { Label = "namespace", Kind = CompletionItemKind.Keyword, Detail = "Namespace declaration", InsertText = "namespace $0\n{\n}" },
             new() { Label = "when", Kind = CompletionItemKind.Keyword, Detail = "Guard clause in match", InsertText = "when ($0)" },
         };
-
         return Task.FromResult(items);
     }
 
@@ -80,14 +90,11 @@ public class ServerState
             return Task.FromResult<Hover?>(new Hover(
                 $"`{lines[position.Line].Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}"));
         }
-
         return Task.FromResult<Hover?>(null);
     }
 
     public Task<List<Location>> GetDefinitionAsync(string uri, Position position)
-    {
-        return Task.FromResult(new List<Location>());
-    }
+        => Task.FromResult(new List<Location>());
 }
 
 internal record OpenDocument(string Uri, string Text, int Version);
