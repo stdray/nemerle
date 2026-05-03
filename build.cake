@@ -390,8 +390,6 @@ Task("Test")
         "-reference dnlib");
     var posGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/positive/*.n" : testFilter;
     var negGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/negative/*.n" : testFilter;
-    var tasks = new System.Threading.Tasks.Task[2];
-    int posExit = 0, negExit = 0;
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
         posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""{posGlob}"" > {posLog} 2>&1");
     });
@@ -444,22 +442,23 @@ Task("BuildVscode")
 {
     Information("=== BUILDING VSCODE LANGUAGE SERVER ===");
     var absS1Out = System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/');
+    var absBoot = System.IO.Path.GetFullPath(nccBoot).Replace('\\', '/');
     EnsureDirectoryExists($"{testOut}/Vscode");
 
-    // Build Nemerle.Language.Core.dll (Nemerle, netstandard2.0)
-    DotNetBuildOne("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", absS1Out, $"{testOut}/Vscode", "obj/Tests/VscodeCore");
+    // Build Nemerle.Language.Core.dll (Nemerle, netstandard2.0) — use boot-dnlib as SDK (has props/targets)
+    DotNetBuildOne("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", absBoot, $"{testOut}/Vscode", "obj/Tests/VscodeCore");
 
     // Build nemerle-language-server (C#, net8.0)
     DotNetBuild("ide/vscode/nemerle-language-server/Nemerle.LanguageServer.csproj", new DotNetBuildSettings {
         MSBuildSettings = new DotNetMSBuildSettings()
             .SetConfiguration(configuration)
-            .WithProperty("NemerleBin", System.IO.Path.GetFullPath($"{testOut}").Replace('\\', '/') + "/")
+            .WithProperty("NemerleBin", absBoot + "/")
             .WithProperty("OutputPath", System.IO.Path.GetFullPath($"{testOut}/Vscode").Replace('\\', '/') + "/")
     });
 
-    // Copy dependencies
-    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll", "Nemerle.Language.Core.dll" })
-        CopyFile($"{testOut}/{dll}", $"{testOut}/Vscode/{dll}");
+    // Copy dependencies from boot-dnlib and language-core output
+    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll" })
+        CopyFile($"{nccBoot}/{dll}", $"{testOut}/Vscode/{dll}");
 
     WriteRuntimeConfig($"{testOut}/Vscode/nemerle-language-server.runtimeconfig.json", "8.0", "LatestMajor");
     Information("=== VSCODE LANGUAGE SERVER BUILT ===");

@@ -247,7 +247,18 @@ namespace Nemerle.Compiler
       match (node.Value)
       {
         | NamespaceTree.TypeInfoCache.Cached(tc) => tc
-        | NamespaceTree.TypeInfoCache.No => ConstructTypeInfo(t, node);
+        | NamespaceTree.TypeInfoCache.CachedAmbiguous(elems) =>
+          // Multiple types matched — return the first one (unlikely for internal types)
+          elems.Head
+        | NamespaceTree.TypeInfoCache.NotLoaded(_)
+        | NamespaceTree.TypeInfoCache.NotLoadedList(_) =>
+          // Type is pending assembly load but DN type is available — construct directly
+          ConstructTypeInfo(t, node)
+        | NamespaceTree.TypeInfoCache.No =>
+          ConstructTypeInfo(t, node)
+        | NamespaceTree.TypeInfoCache.NamespaceReference =>
+          // Namespace node for a type name — construct anyway
+          ConstructTypeInfo(t, node)
         | _ => Util.ice ("not loaded internal type... " + t.AssemblyQualifiedName)
       }
     }
