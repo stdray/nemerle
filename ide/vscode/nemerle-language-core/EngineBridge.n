@@ -32,7 +32,8 @@ namespace Nemerle.Completion2
       {
         def idx = _project.AddOrUpdateSource(uri, text, version);
         def src = _project.GetSource(idx) :> IIdeSource;
-        _ = _engine.BeginUpdateCompileUnit(src, null);
+        def request = _engine.BeginUpdateCompileUnit(src, null);
+        _ = request.AsyncWaitHandle.WaitOne(5000);
       }
     }
 
@@ -91,10 +92,10 @@ namespace Nemerle.Completion2
 
     public GetHoverText(uri : string, line : int, col : int) : string
     {
-      unless (_ready) "";
+      unless (_ready) "error:not_ready";
 
       def src = FindSource(uri);
-      when (src == null) "";
+      when (src == null) "error:no_source";
 
       def snap = src.GetSourceSnapshot();
       def lc = LineColumn(line + 1, col + 1);
@@ -105,9 +106,9 @@ namespace Nemerle.Completion2
       {
         def request = _engine.BeginGetQuickTipInfo(src, location);
         _ = request.AsyncWaitHandle.WaitOne(10000);
-        if (request.QuickTipInfo != null) request.QuickTipInfo.Text else ""
+        if (request.QuickTipInfo != null) request.QuickTipInfo.Text else "error:null_tip"
       }
-      catch { _ => "" }
+      catch { e => "error:" + e.Message }
     }
 
     public GetMethodTip(uri : string, line : int, col : int) : MethodTipInfo
