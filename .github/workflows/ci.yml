@@ -22,19 +22,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup .NET 10.0
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
-      - name: Install tools
-        working-directory: /tmp
+      - name: Restore tools + Cake CI
         run: |
-          dotnet tool install -g Cake.Tool
-          dotnet tool install -g dotnet-ildasm
-
-      - name: Build + Validate + Test
-        run: dotnet-cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
+          dotnet tool restore
+          dotnet cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
 
       - name: Show test summary
         if: always()
@@ -66,29 +62,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup .NET 10.0
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.nproj', 'Nemerle.Compiler.Package.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.nproj', 'Nemerle.Compiler.Package.csproj', '.config/dotnet-tools.json') }}
 
-      - name: Install tools
-        working-directory: /tmp
-        run: |
-          dotnet tool install -g Cake.Tool
-          dotnet tool install -g dotnet-ildasm
-
-      - name: Publish NuGet package (Stage3 → Validate → Pack → Push)
+      - name: Restore tools + Publish NuGet
         shell: bash
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet-cake build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ci-nuget.txt
+          dotnet tool restore
+          dotnet cake build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ci-nuget.txt
 
       - name: Upload NuGet artifacts
         if: always()
