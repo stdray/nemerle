@@ -182,6 +182,10 @@ public class NemerleLanguageServer
 
     private async Task HandleHoverAsync(LspRequest request, CancellationToken ct)
     {
+        // Unconditional log
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-entry.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} HandleHoverAsync called id={request.Id}\n");
         var p = ((JsonElement)request.Params!).Deserialize<HoverParams>(_jsonOpts)!;
         var hover = await _state.GetHoverAsync(p.TextDocument.Uri, p.Position);
         await _transport.SendResponseAsync(request.Id, hover, ct);

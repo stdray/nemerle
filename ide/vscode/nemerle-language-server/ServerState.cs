@@ -147,6 +147,11 @@ public class ServerState
 
     public Task<Hover?> GetHoverAsync(string uri, Position position)
     {
+        // UNCONDITIONAL log — is this method ever called?
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-entry.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} GetHoverAsync uri={uri} line={position.Line} col={position.Character}\n");
+
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
@@ -156,7 +161,11 @@ public class ServerState
             if (_engineBridge?.Ready == true)
             {
                 var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
-                if (!string.IsNullOrEmpty(hintText) && hintText != "error")
+                // Log to file
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-debug.log"),
+                    $"{DateTime.Now:HH:mm:ss} HOVER engine: ready={_engineBridge?.Ready} hint='{hintText?.Substring(0, Math.Min(80, hintText?.Length ?? 0))}'\n");
+                if (!string.IsNullOrEmpty(hintText) && !hintText.StartsWith("error"))
                 {
                     var mkd = HintMarkdownRenderer.ToMarkdown(hintText);
                     if (!string.IsNullOrWhiteSpace(mkd) && !mkd.StartsWith("error"))
