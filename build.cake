@@ -209,8 +209,8 @@ Task("Stage2")
     EnsureDirectoryExists(stage2Out);
     DotNetBuildStage(absS1Out, stage2Out, "obj/Stage2", AllCompilerProjects);
     CopyFile($"{stage1Out}/dnlib.dll", $"{stage2Out}/dnlib.dll");
-    if (FileExists($"{stage1Out}/ncc-core.exe"))
-        CopyFile($"{stage1Out}/ncc-core.exe", $"{stage2Out}/ncc-core.exe");
+    if (FileExists($"{stage1Out}/ncc-core.dll"))
+        CopyFile($"{stage1Out}/ncc-core.dll", $"{stage2Out}/ncc-core.dll");
     Information("=== Stage 2 complete! ===");
 });
 
@@ -238,8 +238,8 @@ Task("Stage3")
     EnsureDirectoryExists(stage3Out);
     DotNetBuildStage(absS2Out, stage3Out, "obj/Stage3", AllCompilerProjects);
     CopyFile($"{stage2Out}/dnlib.dll", $"{stage3Out}/dnlib.dll");
-    if (FileExists($"{stage2Out}/ncc-core.exe"))
-        CopyFile($"{stage2Out}/ncc-core.exe", $"{stage3Out}/ncc-core.exe");
+    if (FileExists($"{stage2Out}/ncc-core.dll"))
+        CopyFile($"{stage2Out}/ncc-core.dll", $"{stage3Out}/ncc-core.dll");
     Information("=== Stage 3 complete! ===");
 });
 
@@ -516,8 +516,8 @@ Task("ReplaceBootstrap")
     if (FileExists($"{stage3Out}/ncc-core.dll"))
         CopyFile($"{stage3Out}/ncc-core.dll", $"{nccBoot}/ncc-core.dll");
     // Copy ncc-core.exe (apphost) — Stage3
-    if (FileExists($"{stage3Out}/ncc-core.exe"))
-        CopyFile($"{stage3Out}/ncc-core.exe", $"{nccBoot}/ncc-core.exe");
+    if (FileExists($"{stage3Out}/ncc-core.dll"))
+        CopyFile($"{stage3Out}/ncc-core.dll", $"{nccBoot}/ncc-core.dll");
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
         CopyFile($"sdk/{f}", $"{nccBoot}/{f}");
     WriteRuntimeConfig($"{nccBoot}/ncc-core.runtimeconfig.json", "8.0", "LatestMajor");
