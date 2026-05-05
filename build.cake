@@ -282,9 +282,10 @@ Task("PackNemerle")
 
 Task("NuGetPush")
     .IsDependentOn("PackNemerle")
+    .IsDependentOn("Validate")
     .Does(() =>
 {
-    Information("=== NuGetPush: PACKED — PUSHING ===");
+    Information("=== NuGetPush: VALIDATED + PACKED — PUSHING ===");
     var apiKey = EnvironmentVariable("NUGET_API_KEY");
     if (string.IsNullOrWhiteSpace(apiKey))
         throw new Exception("NUGET_API_KEY environment variable is not set. Use 'nuget.org/account/apikeys' to create one.");

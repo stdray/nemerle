@@ -28,9 +28,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Install tools
+        working-directory: /tmp
         run: |
-          dotnet tool install -g Cake.Tool --version 5.0.0
-          dotnet tool install -g dotnet-ildasm --version 1.0.3 || true
+          dotnet tool install -g Cake.Tool
+          dotnet tool install -g dotnet-ildasm
 
       - name: Build + Validate + Test
         run: dotnet-cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
@@ -77,11 +78,13 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.nproj', 'Nemerle.Compiler.Package.csproj') }}
 
       - name: Install tools
+        working-directory: /tmp
         run: |
-          dotnet tool install -g Cake.Tool --version 5.0.0
-          dotnet tool install -g dotnet-ildasm --version 1.0.3 || true
+          dotnet tool install -g Cake.Tool
+          dotnet tool install -g dotnet-ildasm
 
       - name: Publish NuGet package (Stage3 → Validate → Pack → Push)
+        shell: bash
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
