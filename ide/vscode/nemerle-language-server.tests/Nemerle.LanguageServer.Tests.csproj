@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsTestProject>true</IsTestProject>
     <ServerGarbageCollection>true</ServerGarbageCollection>
-    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</NemerleBin>
+    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot</NemerleBin>
   </PropertyGroup>
 
   <ItemGroup>

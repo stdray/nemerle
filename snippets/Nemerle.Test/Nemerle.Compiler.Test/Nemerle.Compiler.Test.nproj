@@ -14,7 +14,7 @@
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <FileAlignment>512</FileAlignment>
     <NoStdLib>true</NoStdLib>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot</Nemerle>
     <Name>Nemerle.Compiler.Test</Name>
     <KeyOriginatorFile Condition="'$(NKeysDir)' == ''">..\..\..\misc\keys\Nemerle.Compiler.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition="'$(NKeysDir)' != ''">$(NKeysDir)\Nemerle.Compiler.snk</KeyOriginatorFile>

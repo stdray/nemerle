@@ -9,7 +9,7 @@
     <RollForward>LatestMajor</RollForward>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</NemerleBin>
+    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot</NemerleBin>
   </PropertyGroup>
 
   <ItemGroup>

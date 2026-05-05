@@ -5,7 +5,7 @@
 //////////////////////////////////////////////////////////////////////
 var target        = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
-var nccBoot       = Argument("nccBoot", "boot-dnlib");
+var nccBoot       = Argument("nccBoot", "boot");
 var netCoreVersion = Argument("netCoreVersion", "8.0");
 
 var testFilter    = Argument("testFilter", "");
@@ -30,7 +30,8 @@ string RuntimeConfig(string version, string rollForward) => $@"{{
 
 
 var AllCompilerProjects = new[] {
-    "Nemerle.nproj", "Nemerle.Compiler.nproj", "Nemerle.Macros.nproj", "ncc-core.nproj"
+    "src/Nemerle/Nemerle.nproj", "src/Nemerle.Compiler/Nemerle.Compiler.nproj",
+    "src/Nemerle.Macros/Nemerle.Macros.nproj", "src/ncc-core/ncc-core.nproj"
 };
 
 GitVersion gitVersion = null;
@@ -107,10 +108,10 @@ Task("Clean")
     void RmDir(string d) { try { DeleteDirectory(d, new DeleteDirectorySettings { Recursive = true }); } catch {} }
     void RmFile(string f) { try { System.IO.File.Delete(f); } catch {} }
     foreach (var d in new[] { "bin", "obj" }) if (DirectoryExists(d)) { RmDir(d); Information($"  Deleted {d}/"); }
-    foreach (var d in new[] { "testsuite/positive", "testsuite/negative" })
+    foreach (var d in new[] { "tests/positive", "tests/negative" })
         foreach (var ext in new[] { "*.exe", "*.dll", "*.runtimeconfig.json", "*.pdb" })
             foreach (var f in System.IO.Directory.GetFiles(d, ext)) RmFile(f);
-    foreach (var d in new[] { "testsuite/.tmp_test" }) if (DirectoryExists(d)) { RmDir(d); Information($"  Deleted {d}/"); }
+    foreach (var d in new[] { "tests/.tmp_test" }) if (DirectoryExists(d)) { RmDir(d); Information($"  Deleted {d}/"); }
 });
 
 Task("FixBoot")
@@ -131,7 +132,7 @@ Task("BuildTasks")
         try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
         return;
     }
-    DotNetBuild("Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
+    DotNetBuild("src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
         MSBuildSettings = new DotNetMSBuildSettings().SetConfiguration(configuration)
     });
     try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
@@ -142,7 +143,7 @@ Task("PrepareSdk")
     .Does(() =>
 {
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
-        CopyFile($"tools/msbuild-task/{f}", $"{nccBoot}/{f}");
+        CopyFile($"sdk/{f}", $"{nccBoot}/{f}");
 });
 
 Task("Stage1")
@@ -173,7 +174,7 @@ Task("PrepareStage1Sdk")
         Information($"=== PREPARE STAGE 1 SDK (boot {bootVer} -> {netCoreVersion}) ===");
     }
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
-        CopyFile($"tools/msbuild-task/{f}", $"{stage1Out}/{f}");
+        CopyFile($"sdk/{f}", $"{stage1Out}/{f}");
 });
 Task("BuildTestInfrastructure")
     .IsDependentOn("PrepareStage1Sdk")
@@ -216,7 +217,7 @@ Task("Stage3")
     var absS2Out = System.IO.Path.GetFullPath(stage2Out).Replace('\\', '/');
     // Ensure stage2Out has SDK files for use as Nemerle SDK
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
-        CopyFile($"tools/msbuild-task/{f}", $"{stage2Out}/{f}");
+        CopyFile($"sdk/{f}", $"{stage2Out}/{f}");
     // Retry with delay — Stage2 MSBuild may still hold file handles
     {
         var src = $"{stage1Out}/Nemerle.MSBuild.Tasks.dll";
@@ -250,7 +251,7 @@ Task("PackNemerle")
     // Ensure ncc-core runtimeconfig exists
     WriteRuntimeConfig($"{stage3Out}/ncc-core.runtimeconfig.json", "8.0", "LatestMajor");
 
-    var packageProject = "Nemerle.Compiler.Package.csproj";
+    var packageProject = "src/Nemerle.Compiler.Package/Nemerle.Compiler.Package.csproj";
 
     var ms = new DotNetMSBuildSettings()
         .SetConfiguration(configuration)
@@ -402,7 +403,7 @@ Task("Test")
     .Does(() =>
 {
     Information("=== RUNNING TESTS ===");
-    foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" })
+    foreach (var dir in new[] { "tests/positive", "tests/negative" })
         foreach (var f in System.IO.Directory.GetFiles(dir, "*.n"))
             if (System.IO.File.ReadAllText(f).Contains("BEGIN-OUTPUT"))
             { var rt = System.IO.Path.ChangeExtension(f, ".runtimeconfig.json"); System.IO.File.WriteAllText(rt, RuntimeConfig("8.0", "LatestMajor")); }
@@ -432,7 +433,7 @@ Task("Test")
     CopyFile(codeDomDll, System.IO.Path.Combine(negOut, "System.CodeDom.dll"));
 
     // Copy runtimeconfig.json for EXE tests to output dirs
-    foreach (var dir in new[] { "testsuite/positive", "testsuite/negative" }) {
+    foreach (var dir in new[] { "tests/positive", "tests/negative" }) {
         var targetDir = dir.Contains("positive") ? posOut : negOut;
         foreach (var rt in System.IO.Directory.GetFiles(dir, "*.runtimeconfig.json"))
             CopyFile(rt, System.IO.Path.Combine(targetDir, System.IO.Path.GetFileName(rt)));
@@ -474,8 +475,8 @@ Task("Test")
         "-reference System.ComponentModel.TypeConverter",
         "-reference System.ObjectModel",
         "-reference dnlib");
-    var posGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/positive/*.n" : testFilter;
-    var negGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/negative/*.n" : testFilter;
+    var posGlob = string.IsNullOrEmpty(testFilter) ? "tests/positive/*.n" : testFilter;
+    var negGlob = string.IsNullOrEmpty(testFilter) ? "tests/negative/*.n" : testFilter;
     var shell = IsRunningOnWindows() ? "cmd" : "bash";
     var shellArg = IsRunningOnWindows() ? "/C" : "-c";
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
@@ -501,7 +502,7 @@ Task("ReplaceBootstrap")
     .Does(() =>
 {
     Information("=== REPLACING BOOTSTRAP WITH .NET 8 STAGE 3 ===");
-    var backupDir = "boot-dnlib-netcore21";
+    var backupDir = "boot-netcore21";
     if (!DirectoryExists(backupDir)) CopyDirectory(nccBoot, backupDir);
     foreach (var f in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll" })
     { var src = $"{stage3Out}/{f}"; if (FileExists(src)) CopyFile(src, $"{nccBoot}/{f}"); }
@@ -512,7 +513,7 @@ Task("ReplaceBootstrap")
     if (FileExists($"{stage3Out}/ncc-core.exe"))
         CopyFile($"{stage3Out}/ncc-core.exe", $"{nccBoot}/ncc-core.exe");
     foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
-        CopyFile($"tools/msbuild-task/{f}", $"{nccBoot}/{f}");
+        CopyFile($"sdk/{f}", $"{nccBoot}/{f}");
     WriteRuntimeConfig($"{nccBoot}/ncc-core.runtimeconfig.json", "8.0", "LatestMajor");
     Information("=== Bootstrap replaced with .NET 8 ===");
 });

@@ -1,0 +1,385 @@
+﻿#define ASSERT_ON_LOST_DEBUG_INFO
+//#define CHECK_DEBUG_INFO_EXTENDED
+using Nemerle.Compiler;
+using Nemerle.Utility;
+using Nemerle.Assertions;
+
+using System.Diagnostics;
+
+using Console  = System.Console;
+using Obsolete = System.ObsoleteAttribute;
+using PExpr    = Nemerle.Compiler.Parsetree.PExpr;
+using PT       = Nemerle.Compiler.Parsetree;
+using SCG      = System.Collections.Generic;
+using PExpr    = Nemerle.Compiler.Parsetree.PExpr;
+
+namespace Nemerle.Compiler.Typedtree
+{
+  public class TFunHeader : TypedBase, System.IComparable [TFunHeader], Parsetree.IParametersProvider
+  {
+    public Braces         : SCG.Dictionary[TExpr, PExpr.Sequence] = SCG.Dictionary();
+    public SequenceElems  : SCG.Dictionary[TExpr, PExpr]          = SCG.Dictionary();
+
+#if CHECK_DEBUG_INFO_EXTENDED
+    public SequenceElemsUsed  : SCG.HashSet[PExpr] = SCG.HashSet();
+    public BracesUsed         : SCG.HashSet[PExpr] = SCG.HashSet();
+    public SequenceElemsCount : int { get; private set; }
+    public BracesCount        : int { get; private set; }
+#endif
+
+    TryShowAssert(msg : string) : void
+    {
+      //when (!ManagerClass.Instance.AssertWasShown)
+      {
+        ManagerClass.Instance.AssertWasShown = true;
+        //assert2(false, msg);
+      }
+    }
+
+    public TryAddSequenceElem(tExpr : TExpr, pExpr : PExpr) : void
+    {
+      when (pExpr != null && !pExpr.Location.IsGeneratedOrEmpty && !SequenceElems.ContainsKey(tExpr))
+      {
+#if CHECK_DEBUG_INFO_EXTENDED
+        unless(SequenceElemsUsed.Add(pExpr))
+          TryShowAssert($"The '$(pExpr.Location.TruncateToEndLine())' PExpr.$(pExpr.GetType().Name) has already been used. Location: $(pExpr.Location)");
+#endif
+        //tExpr.Debug = true;
+        SequenceElems.Add(tExpr, pExpr);
+      }
+    }
+
+    public TryAddBraces(tExpr : TExpr, pExpr : PExpr.Sequence) : void
+    {
+      when (pExpr != null && !pExpr.Location.IsGeneratedOrEmpty && !Braces.ContainsKey(tExpr))
+      {
+#if CHECK_DEBUG_INFO_EXTENDED
+        unless (BracesUsed.Add(pExpr))
+          TryShowAssert($"The Braces '$(pExpr.Location.TruncateToEndLine())' PExpr.$(pExpr.GetType().Name) has already been used. Location: $(pExpr.Location)");
+#endif
+        //tExpr.Debug = true;
+        Braces.Add(tExpr, pExpr);
+      }
+    }
+
+    public RemoveDebugInfo(tExpr : TExpr) : void
+    {
+      if (Braces.Remove(tExpr))
+      {
+        assert(true);
+      }
+      else
+      {
+        assert(true);
+      }
+      if (SequenceElems.Remove(tExpr))
+      {
+        assert(true);
+      }
+      else
+      {
+        assert(true);
+      }
+      //tExpr.Debug = false;
+    }
+
+    public MoveDebugInfoFrom(from : TFunHeader) : void
+    {
+      foreach (x in from.SequenceElems)
+        SequenceElems.Add(x.Key, x.Value);
+
+      foreach (x in from.Braces)
+        Braces.Add(x.Key, x.Value);
+
+#if CHECK_DEBUG_INFO_EXTENDED
+      SequenceElemsCount += from.SequenceElemsCount;
+      BracesCount += from.BracesCount;
+#endif
+    }
+
+    public CopyDebugInfo(from : TExpr, to : TExpr) : void
+    {
+      when (from : object != to && to != null)
+      {
+        mutable seq;
+        when (Braces.TryGetValue(from, out seq))
+        {
+          _ = Braces.Remove(from);
+          Braces[to] = seq;
+          //from.Debug = false;
+          //to.Debug   = true;
+        }
+
+        mutable elem;
+        if (to : object == from)
+        {
+          //assert2(true);
+        }
+        else when (SequenceElems.TryGetValue(from, out elem))
+        {
+          when (SequenceElems.ContainsKey(to))
+          {
+            //assert2(true);
+          }
+          //match (from)
+          //{
+          //  | DefValIn as m =>
+          //    ()
+          //  | _ => ()
+          //}
+          if (SequenceElems.Remove(from))
+          {
+            assert(true);
+            //from.Debug = false;
+          }
+          else
+          {
+            assert(true);
+          }
+          unless (SequenceElems.ContainsKey(to))
+          {
+            //to.Debug          = true;
+            SequenceElems[to] = elem;
+          }
+        }
+      }
+    }
+
+    public CheckDebugInfo() : void
+    {
+      match (body)
+      {
+        | FunBody.Typed(body) => CheckDebugInfo(body);
+        | _ => ()
+      }
+    }
+
+    public CheckDebugInfo(tExpr : TExpr) : void
+    {
+      //assert2(BracesCount == 0 || Braces.Count == BracesCount);
+      CheckDebugInfo(tExpr, Braces, "Braces");
+      //assert2(SequenceElemsCount == 0 || SequenceElems.Count == SequenceElemsCount);
+      CheckDebugInfo(tExpr, SequenceElems, "SequenceElems");
+#if CHECK_DEBUG_INFO_EXTENDED
+      BracesCount = Braces.Count;
+      SequenceElemsCount = SequenceElems.Count;
+#endif
+    }
+
+    CheckDebugInfo[T](tExpr : TExpr, exprMap : SCG.Dictionary[TExpr, T], mapName : string) : void
+      where T: PExpr
+    {
+      def exprs = SCG.Dictionary();
+      def exprs = exprs;
+
+      foreach (kv in exprMap)
+        _ = exprs[kv.Key] = kv.Value;
+
+      def visit(expr : TExpr) : void
+      {
+        when (expr is TExpr.DefFunctionsIn as d)
+          foreach (func in d.funs)
+            func.CheckDebugInfo();
+        def exprs = exprs;
+        when (exprs.Remove(expr))
+        {
+          //assert2(true);
+        }
+      }
+      tExpr.Visit(this, visit);
+      def exprs = exprs;
+      unless (exprs.Count == 0)
+      {
+        def toStr(kv : SCG.KeyValuePair[TExpr, PExpr]) : string
+        {
+          def loc = kv.Value.Location;
+          "TExpr." + kv.Key.GetType().Name + " mapped to '" + loc.TruncateToEndLine().GetText() + "' Location: " + loc.ToMessageString();
+        }
+#if ASSERT_ON_LOST_DEBUG_INFO
+        TryShowAssert($"$(exprs.Count) expressions lost in $mapName: ..$(exprs; System.Environment.NewLine; toStr)");
+#else
+        def prev = Console.ForegroundColor;
+        Console.ForegroundColor = System.ConsoleColor.Magenta;
+        Console.WriteLine($"$(exprs.Count) expressions lost in $mapName:");
+        foreach (kv in exprs)
+          Console.WriteLine(kv.Value.Location.ToMessageString() + " " + toStr(kv));
+        Console.ForegroundColor = prev;
+#endif
+        foreach (k in exprs.Keys)
+          _ = exprMap.Remove(k);
+      }
+    }
+
+    public Name               : string              { get; internal set; }
+    public ReturnType         : TypeVar             { get; internal set; }
+    public ReturnTypeLocation : Location            { get; internal set; }
+    public Parameters         : list[TParameter]    { get; internal set; }
+    public TypeParameters     : list[StaticTypeVar] { get; internal set; }
+    public TypeVarEnv         : TypeVarEnv          { get { tenv } }
+    public Body               : FunBody             { get { body } }
+    public ParsedBody         : PExpr               { get; private set; }
+    public TypedBody          : TExpr
+    {
+      get;
+      private set;
+    }
+    public ClosureVars        : list [LocalValue]   { get { closure_vars } }
+    public Declaration        : LocalValue          { get { decl } }
+    public Parsed             : PT.FunctionDecl     { get; set; }
+
+    [Obsolete("Use ReturnTypeLocation instead of RetTypeLoc")]
+    public RetTypeLoc         : Location            { get { ReturnTypeLocation } }
+    [Obsolete("Use ReturnType instead of RetType")]
+    public RetType            : TypeVar             { get { ReturnType } }
+
+
+    [Obsolete("Use Name instead of name")]
+    public name         : string          { get { Name } }
+    public id           : int;
+    [Obsolete("Use ReturnType instead of ret_type")]
+    public ret_type     : TypeVar                 { get { ReturnType } }
+    [Obsolete("Use ReturnTypeLocation instead of ret_type_loc")]
+    public ret_type_loc : Location                { get { ReturnTypeLocation } }
+    [Obsolete("Use Parameters instead of parms")]
+    public parms                : list [TParameter] { get { Parameters } }
+    [Obsolete("Use TypeParameters instead of typarms")]
+    public typarms      : list [StaticTypeVar] { get { TypeParameters } }
+    public tenv         : TypeVarEnv;
+
+    public mutable usage : FunctionUsage;
+    private mutable _body : FunBody;
+    public body : FunBody
+    {
+      get { _body }
+      set
+      {
+        match (value)
+        {
+          | Parsed(expr) => this.ParsedBody = expr;
+          | Typed(expr2)  =>
+            CheckDebugInfo(expr2);
+            this.TypedBody = expr2;
+
+          | ILed
+          | Abstract
+          | null     => ()
+        }
+
+        _body = value;
+      }
+    }
+    public mutable has_1st_class_child : bool;
+    public mutable cannot_inline : bool;
+    public ConvertToLoopWithClosure : bool { get; internal set; }
+
+    /// local values defined in this function, which are closurised (used by children)
+    public mutable closure_vars : list [LocalValue] = [];
+    /// local value, which is declaring this function (valid for local funs)
+    public mutable decl : LocalValue;
+    public mutable all_locals : list [LocalValue] = [];
+    internal mutable children_funs : list [TFunHeader] = [];
+    internal mutable uses_try_block : bool;
+    internal mutable yield_type : TypeVar;
+    internal mutable is_in_closure_of : int;
+
+    // FIXME: move to hashtables in t3
+    internal mutable used_closures : list [TFunHeader];
+    internal mutable static_method : IMethod;
+    internal mutable typarms_to_pass : list[TypeVar];
+    internal mutable closure_type : FixedType.Class;
+    public FunLocation : Location { get; internal set; }
+    // end
+
+    public this(loc          : Location,
+                name         : string,
+      [NotNull] ret_type     : TypeVar,
+                ret_type_loc : Location,
+                parms        : list[TParameter],
+                typarms      : list[StaticTypeVar],
+                tenv         : TypeVarEnv,
+                funLocation  : Location = default(_))
+    {
+      base (loc);
+
+      this.Name               = name;
+      this.ReturnType         = ret_type;
+      this.ReturnTypeLocation = ret_type_loc;
+      this.Parameters         = parms;
+      this.TypeParameters     = typarms;
+      this.tenv               = tenv;
+      FunLocation             = funLocation;
+
+      id = ret_type.Manager.GetNewId();
+      usage = FunctionUsage.NotUsed;
+    }
+
+    public Reset() : void
+    {
+      ParsedBody                = null;
+      TypedBody                 = null;
+      body                      = null;
+      has_1st_class_child       = false;
+      cannot_inline             = false;
+      ConvertToLoopWithClosure  = false;
+      closure_vars              = [];
+      decl                      = null;
+      all_locals                = [];
+      children_funs             = [];
+      uses_try_block            = false;
+      yield_type                = null;
+      is_in_closure_of          = 0;
+      used_closures             = null;
+      static_method             = null;
+      typarms_to_pass           = null;
+      closure_type              = null;
+    }
+
+    public CompareTo (other : TFunHeader) : int
+    {
+      id - other.id
+    }
+
+    /**
+     *  Retrieves functions in which current function is nested. Empty list if
+     *  this is a plain method of some class.
+     */
+    public GetParents () : list [TFunHeader]
+    {
+      if (decl != null)
+        match (decl.ValKind) {
+          | LocalValue.Kind.Function (_, pars) => pars
+          | _ => Util.ice ("invalid value kind for function")
+        }
+      else []
+    }
+
+    public override ToString () : string
+    {
+      $"$Name(..$Parameters) : $ReturnType"
+    }
+
+    public ParametersDeclarations : list [Parsetree.PParameter]
+    {
+      get { Parameters.Map(_.AsParsed ())  }
+    }
+
+    public ParametersReferences : list [PExpr]
+    {
+      get { Parameters.Map(_.ReferencingExpr) }
+    }
+
+    public CreateAliasMethod(mods : NemerleModifiers, obj : PExpr, custom_subst : Subst) : Parsetree.ClassMember
+    {
+      def attrs = AttributesAndModifiers(mods, []);
+
+      def parse_tr = <[ decl:
+        ..$attrs $(this.Name : usesite) (..$(this.ParametersDeclarations)) : $(this.ReturnType : typed)
+        {}
+      ]>;
+      parse_tr.header.TypeParameters = Parsetree.CopyTypedTyparms(this.TypeParameters, custom_subst);
+      def tyargs = parse_tr.header.TypeParameters.ExistingTyvars.Map (x => <[ $(FixedType.StaticTypeVarRef (x) : typed) ]>);
+      parse_tr.Body = <[ $obj.$(this.Name : usesite) .[..$tyargs] (..$(this.ParametersReferences)) ]>;
+      parse_tr
+    }
+  } // class
+} // namespace

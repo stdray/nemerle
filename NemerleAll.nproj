@@ -15,7 +15,7 @@
     <!--Path to root directory of Nemerle sources.-->
     <NRoot>$(MSBuildProjectDirectory)</NRoot>
     <!-- Original boot -->
-    <NRootBoot>$(NRoot)\boot-dnlib</NRootBoot>
+    <NRootBoot>$(NRoot)\boot</NRootBoot>
     <!--Path to stages output directory (including current configuration subfolder).-->
     <NBin>$(NRoot)\bin\$(Configuration)</NBin>
     <NObj>$(NRoot)\obj\$(Configuration)</NObj>

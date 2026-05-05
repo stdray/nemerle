@@ -1,0 +1,590 @@
+﻿using Nemerle.Compiler;
+using Nemerle.Internal;
+using Nemerle.Utility;
+using Nemerle.Assertions;
+
+using PExpr = Nemerle.Compiler.Parsetree.PExpr;
+
+namespace Nemerle.Compiler.Typedtree
+{
+  public variant TExpr : TypedBase
+  {
+    public mutable Debug : bool;
+
+    // always valid
+    | StaticRef             { from : FixedType.Class; mem : IMember; type_parms : list [TypeVar]; }
+    | LocalRef              { decl : LocalValue; }
+    | ImplicitValueTypeCtor
+    | FieldMember           { obj : TExpr; fld : IField; }
+    | MethodRef             { obj : TExpr; meth : IMethod; type_parms : list [TypeVar]; notvirtual : bool; }
+    | Call                  { mutable func : TExpr; mutable parms : list[Param]; mutable is_tail : bool;
+                              public override SetParsedObject(related : ParsedBase) : void
+                              {
+                                match (related)
+                                {
+                                  | null => ()
+                                  | PExpr.Call(pfunc, _) => func.SetParsedObject(pfunc)
+                                  | _ => ()
+                                }
+
+                                base.SetParsedObject(related)
+                              }
+                            }
+    | Assign                { target : TExpr; source : TExpr; }
+    | DefValIn              { name : LocalValue; val : TExpr; mutable body : TExpr; }
+    | Throw                 { exn : TExpr; }
+    | TryFinally            { body : TExpr; handler : TExpr; }
+    | Try                   { body : TExpr; mutable cases : list [TryCase]; }
+    | Literal               { val : Nemerle.Compiler.Literal; }
+    | This
+    | Base                  { base_ctor : IMethod; }
+    | TypeConversion        { mutable expr : TExpr; target_type : TypeVar; kind : ConversionKind;
+                              mutable target_type_location : Location;
+
+                              this (loc : Location, tv : TypeVar, expr : TExpr, target_type : TypeVar, kind : ConversionKind)
+                              {
+                                this (loc, tv, expr, target_type, kind, Location.Default);
+                              }
+
+                              this (tv : TypeVar, expr : TExpr, target_type : TypeVar, kind : ConversionKind)
+                              {
+                                this (tv, expr, target_type, kind, Location.Default);
+                              }
+
+                              this (expr : TExpr, target_type : TypeVar, kind : ConversionKind)
+                              {
+                                this (expr, target_type, kind, Location.Default);
+                              }
+
+                            }
+    | Sequence              { mutable e1 : TExpr; mutable e2 : TExpr; }
+    | Tuple                 { args : list [TExpr]; }
+    | Array                 { args : list [TExpr]; dimensions : list [TExpr]; }
+
+    | TypeOf                { target_type : TypeVar; }
+    | MethodOf              { from_type : TypeVar; method : IMethod; typars : list [TypeVar] }
+    | CtorOf                { @type : TypeVar; method : IMethod; }
+    | FieldOf               { @type : TypeVar; field  : IField; }
+    | ClosureObjectOf       { varRef : TExpr; }
+    | ClosureFieldOf        { varRef : TExpr;
+                              public new this(types : InternalTypeClass, varRef : TExpr)
+                              {
+                                _ty         = types.FieldInfo;
+                                this.varRef = varRef;
+                              }
+                            }
+
+    | ArrayIndexer          { obj : TExpr; args : list [TExpr]; }
+    | PointerIndexer        { obj : TExpr; index : TExpr; }
+    | TupleIndexer          { obj : TExpr; pos : int; len : int; } // 0-based
+    | OpCode                { name : string; }
+    | MacroEnvelope         { original : PExpr; the_macro : IMacro; expanded : TExpr; expandedPExpr : PExpr; }
+
+    // invalid after T2
+    | PropertyMember        { obj : TExpr; prop : IProperty; }
+    | StaticPropertyRef     { from : FixedType.Class; prop : IProperty; }
+    | EventMember           { obj : TExpr; ev : IEvent; }
+    | StaticEventRef        { from : FixedType.Class; ev : IEvent; }
+    | ConstantObjectRef     { from : FixedType.Class; mem : IField; }
+    | Block                 { jump_out : LocalValue; body : TExpr; }
+    | Delayed               { susp : Typer.DelayedTyping; }
+
+    | Cache                 { desc : CacheDesc; mutable body : TExpr; }
+    | CacheRef              { desc : CacheDesc; }
+
+    | Error
+
+    // invalid after T3
+    | DefFunctionsIn        { funs : list [TFunHeader]; mutable body : TExpr; }
+    | Match                 { expr : TExpr; cases : list [TMatchCase]; }
+    | SelfTailCall          { func : TExpr; parms : list [Param]; }
+    | LocalFunRef           { decl : LocalValue; type_parms : list [TypeVar]; }
+
+    // new CG-related stuff
+    | MethodAddress         { from : TypeVar; meth : IMethod; is_virt : bool;
+                              type_parms : list [TypeVar]; }
+    | MultipleAssign        { assigns : list [LocalValue * TExpr]; }
+    // we cannot directly reference Label from Goto, because Walk() would
+    // destroy it
+    | Label                 { id : int; body : TExpr; }
+    // The try_block exact value has meaning only in T4, outside a value
+    // different than zero means that we should use [leave] and not [br].
+    // This is set in T4, if you create nodes of this type earlier, set
+    // it to 1.
+    | Goto                  { target : int; mutable try_block : int; }
+    | DefaultValue
+    | If                    { cond : TExpr; e_then : TExpr; e_else : TExpr;
+                              mutable then_debug_loc : Location; mutable else_debug_loc : Location; }
+    | HasType               { expr : TExpr; test_ty : FixedType; }
+    | Switch                { indexing_expr : TExpr;
+                              default : option [TExpr];
+                              cases : list [int * TExpr]; }
+    // Used only by optimizer (between T3 & T4)
+    | Def                   { mutable expr : TExpr; mutable into : TExpr; }
+    | Use                   { mutable expr : TExpr; mutable def_of : TExpr.Def; }
+
+    mutable _ty : TypeVar;
+    public   ty : TypeVar
+    {
+      [System.Diagnostics.DebuggerStepThrough]
+      get { _ty }
+      [System.Diagnostics.DebuggerStepThrough]
+      set { _ty = value }
+    }
+
+    public Type : TypeVar
+    { [System.Diagnostics.DebuggerStepThrough]
+      get { if (ty == null) GetType(ManagerClass.Instance) else ty }
+
+      internal set
+      {
+        ty = value;
+      }
+    }
+
+    internal CheckAfterT2(funHeader : TFunHeader) : void
+    {
+      def walk(e)
+      {
+        | PropertyMember
+        | StaticPropertyRef
+        | EventMember
+        | StaticEventRef
+        | ConstantObjectRef
+        | Block
+        | Delayed
+        | Cache
+        | CacheRef
+        | Error =>
+          System.Diagnostics.Debug.Assert(false, $"The $(e.GetType().FullName) ot T2 detected!");
+          //Util.ice($"invalid TExpr after T2: $e");
+
+        | Def | Use => Util.ice($"invalid def/use TExpr after T2: $e");
+        | _ => ()
+      }
+      Visit(funHeader, walk);
+    }
+
+    internal CheckAfterT3(funHeader : TFunHeader) : void
+    {
+      def walk(e)
+      {
+        | PropertyMember
+        | StaticPropertyRef
+        | EventMember
+        | StaticEventRef
+        | ConstantObjectRef
+        | Block
+        | Delayed
+        | Cache
+        | CacheRef
+        | Error       => Util.ice ($"invalid TExpr after T3(T2): $e");
+        | DefFunctionsIn
+        | Match
+        | SelfTailCall
+        | LocalFunRef => Util.ice ($"invalid TExpr after T3: $e");
+        | Def
+        | Use         => Util.ice ($"invalid def/use TExpr after T3: $e");
+        | _           => ()
+      }
+      Visit(funHeader, walk);
+    }
+
+    [FlagAccessor(IsAssigned,     flags = WantSetter | Internal)]
+    [FlagAccessor(JumpTarget,     flags = WantSetter | Internal)]
+    [FlagAccessor(Visited,        flags = WantSetter | Internal)]
+    [FlagAccessor(GenerateTail,   flags = WantSetter | Internal)]
+    [FlagAccessor(SkipWriteCheck, flags = WantSetter | Internal)]
+    mutable flags : TExprFlags;
+
+    #region Typer4 and ILGenerator stuff
+    internal Throws : bool
+    {
+      get
+      {
+        Util.cassert (flags %&& TExprFlags.ThrowsComputed, $"throws not computed for $this");
+        flags %&& TExprFlags.Throws
+      }
+
+      set
+      {
+        Util.cassert(!(flags %&& TExprFlags.ThrowsComputed), $"throws already computed for $this");
+        if (value)
+          flags |= TExprFlags.Throws
+        else
+          flags &= ~TExprFlags.Throws;
+
+        flags |= TExprFlags.ThrowsComputed;
+      }
+    }
+
+    internal NeedsEmptyStack : bool
+    {
+      get
+      {
+        Util.cassert(flags %&& TExprFlags.NeedsEmptyStackComputed, $"NeedsEmptyStack not computed for $this");
+        flags %&& TExprFlags.NeedsEmptyStack
+      }
+
+      set
+      {
+        Util.cassert(!(flags %&& TExprFlags.NeedsEmptyStackComputed), $"NeedsEmptyStack already computed for $this");
+        if (value)
+          flags |= TExprFlags.NeedsEmptyStack
+        else
+          flags &= ~TExprFlags.NeedsEmptyStack;
+
+        flags |= TExprFlags.NeedsEmptyStackComputed;
+      }
+    }
+
+    internal NeedsConstrained : bool
+    {
+      get { flags %&& TExprFlags.Constrained  }
+      set { when (value) flags |= TExprFlags.Constrained }
+    }
+
+    internal IsAddressable : bool
+    {
+      get
+      {
+        unless (flags %&& TExprFlags.AddressableComputed)
+          match (this)
+          {
+            | StaticRef | LocalRef | ArrayIndexer | PointerIndexer | This => IsAddressable = true;
+            | FieldMember (obj, fld) =>
+              if (fld.DeclaringType.IsValueType)
+                IsAddressable = obj.IsAddressable;
+              else
+                IsAddressable = true;
+
+            | MacroEnvelope(_, _, expanded, _) => IsAddressable = expanded.IsAddressable;
+            | _ => IsAddressable = false;
+          }
+
+        flags %&& TExprFlags.Addressable
+      }
+
+      set
+      {
+        Util.cassert(!(flags %&& TExprFlags.AddressableComputed));
+
+        if (value)
+          flags |= TExprFlags.Addressable
+        else
+          flags &= ~TExprFlags.Addressable;
+
+        flags |= TExprFlags.AddressableComputed;
+      }
+    }
+
+    internal NeedAddress : bool
+    {
+      get { flags %&& TExprFlags.NeedAddress }
+    }
+
+    internal setNeedAddress(from_ctor : bool) : bool
+    {
+      Util.cassert(!NeedAddress);
+
+      match (this)
+      {
+        | StaticRef
+        | LocalRef
+        | ArrayIndexer
+        | PointerIndexer
+        | This =>
+          flags |= TExprFlags.NeedAddress;
+          true
+
+        | FieldMember (This as obj, fld) with is_mutable = from_ctor || fld.IsMutable
+        | FieldMember (obj, fld) with is_mutable = fld.IsMutable || fld.Attributes %&& NemerleModifiers.CompilerMutable =>
+          if (is_mutable) {
+          //Message.Debug ($"am being assigned $this");
+            flags |= TExprFlags.NeedAddress;
+            if (fld.DeclaringType.IsValueType && !obj.NeedAddress)
+              obj.setNeedAddress (from_ctor);
+            else
+              true
+          }
+          else
+            false
+
+        | MacroEnvelope(_, _, expanded, _) => expanded.setNeedAddress(from_ctor)
+        | _ => false
+      }
+    }
+    #endregion
+
+    public GetType(manager : ManagerClass) : TypeVar
+    {
+      when (ty == null)
+      {
+        TryInitType(manager);
+
+        when (ty == null)
+        {
+          if (manager.IsIntelliSenseMode)
+          {
+            System.Diagnostics.Trace.WriteLine($"type is null for $(this.Location), $this");
+            ty = manager.Solver.FreshTypeVar ()
+          }
+          else
+            assert(ty != null, $ "still null, $(this.Location), $(this.GetType().FullName)");
+        }
+      }
+
+      ty
+    }
+
+    public TryInitType(manager : ManagerClass) : void
+    {
+      when (ty == null)
+      {
+        def InternalType = manager.InternalType;
+        match (this)
+        {
+          | Throw | Goto | Error       => ty = manager.Solver.FreshTypeVar ()
+          | TExpr.Literal (l)          => ty = l.GetInternalType (InternalType)
+          | Assign                     => ty = InternalType.Void
+          | HasType                    => ty = InternalType.Boolean
+          | MacroEnvelope (_, _, e, _) => ty = e.GetType(manager)
+          | Cache as c =>
+            assert(c.body != null, $ "when trying to determin type, body is null: $this");
+            ty = c.body.GetType(manager)
+
+          | TypeOf                     => ty = InternalType.Type
+          | CtorOf                     => ty = InternalType.ConstructorInfo
+          | MethodOf                   => ty = InternalType.MethodInfo
+
+          | _ => ()
+        }
+      }
+    }
+
+    // Code which change state can't be property!
+    public FixedType() : FixedType
+    {
+      Type.Fix()
+    }
+
+    public this () { }
+
+    public this (ty : TypeVar)
+    {
+      this.ty = ty;
+    }
+
+    public this (loc : Location, ty : TypeVar)
+    {
+      base (loc);
+      this.ty = ty;
+    }
+
+
+    public override ToString() : string { PrettyPrint.SprintTyExpr (this) }
+
+
+    // it does not copy calls
+    public Copy([NotNull] walker : Walker) : TExpr
+    {
+      def do_copy(expr : TExpr) : TExpr
+      {
+        | This                                  => This()
+        | LocalRef(decl)                        => LocalRef(decl)
+        | StaticRef(from, mem, parms)           => StaticRef(from, mem, parms)
+        | OpCode(o)                             => OpCode(o)
+        | TypeOf(t)                             => TypeOf(t)
+        | MethodOf(from_type, method, typars)   => MethodOf(from_type, method, typars)
+        | CtorOf(ty, m)                         => CtorOf(ty, m)
+        | FieldOf(ty, f)                        => FieldOf(ty, f)
+        | ClosureObjectOf(x)                    => ClosureObjectOf(x)
+        | ClosureFieldOf(x)                     => ClosureFieldOf(x)
+        | TExpr.Literal(l)                      => TExpr.Literal(l)
+        | Base(ctor)                            => Base(ctor)
+        | ImplicitValueTypeCtor                 => ImplicitValueTypeCtor()
+        | MethodAddress(from, meth, v, typarms) => MethodAddress(from, meth, v, typarms)
+        | Goto(id, t)                           => Goto(id, t)
+        | DefaultValue                          => DefaultValue()
+        | ConstantObjectRef(from, mem)          => ConstantObjectRef(from, mem)
+        | _                                     => null // FIXME
+      }
+
+      walker.Walk(do_copy, this)
+    }
+
+    public Walk([NotNull] walker : Walker, f : TExpr -> TExpr) : TExpr
+    {
+      walker.Walk(f, this)
+    }
+
+    public CopyDebugInfo([NotNull] funHeader : TFunHeader, from : TExpr) : TExpr
+    {
+      funHeader.CopyDebugInfo(from, this);
+      this
+    }
+
+    public With(prototype : TExpr) : TExpr
+    {
+      when (prototype != null && this : object != prototype && _N_GetVariantCode() == prototype._N_GetVariantCode())
+      {
+        //IsStatement = prototype.IsStatement;
+        SetParsedObject(prototype.ParsedObject);
+      }
+
+      this
+    }
+
+    public Set(prototype : TExpr) : TExpr
+    {
+      when (prototype != null && this : object != prototype)
+      {
+        //IsStatement = prototype.IsStatement;
+        SetParsedObject(prototype.ParsedObject);
+      }
+
+      this
+    }
+
+    public Visit(funHeader : TFunHeader, func : TExpr -> void) : void
+    {
+      Visit(funHeader, this, func);
+    }
+
+    public static Visit(funHeader : TFunHeader, expr : TExpr, func : TExpr -> void) : void
+    {
+      when (expr != null)
+        func(expr);
+      match (expr)
+      {
+        | null => ()
+        | StaticEventRef | ConstantObjectRef | StaticPropertyRef | OpCode | TypeOf | MethodOf | CtorOf | FieldOf | Literal
+        | This | Base | ImplicitValueTypeCtor | StaticRef | LocalRef | CacheRef | Error | LocalFunRef | MethodAddress | Goto
+        | DefaultValue => ()
+        | FieldMember           as x => func(expr); Visit(funHeader, x.obj, func);
+        | MethodRef             as x => func(expr); Visit(funHeader, x.obj, func);
+        | Assign                as x => func(expr); Visit(funHeader, x.target, func); Visit(funHeader, x.source, func);//{ target : TExpr; source : TExpr; }
+        | DefValIn              as x => func(expr); Visit(funHeader, x.val, func);  Visit(funHeader, x.body, func);//{ name : LocalValue; val : TExpr; mutable body : TExpr; }
+        | Throw                 as x => func(expr); Visit(funHeader, x.exn, func);//{ exn : TExpr; }
+        | TypeConversion        as x => func(expr); Visit(funHeader, x.expr, func); //{ mutable expr : TExpr; target_type : TypeVar; kind : ConversionKind;
+        | Sequence              as x => func(expr); Visit(funHeader, x.e1, func);  Visit(funHeader, x.e2, func);//{ mutable e1 : TExpr; mutable e2 : TExpr; }
+        | ClosureObjectOf       as x => Visit(funHeader, x.varRef, func);//{ varRef : TExpr; }
+        | ClosureFieldOf        as x => Visit(funHeader, x.varRef, func);//{ varRef : TExpr;
+        | PointerIndexer        as x => Visit(funHeader, x.obj, func); Visit(funHeader, x.index, func);//{ obj : TExpr; index : TExpr; }
+        | TupleIndexer          as x => Visit(funHeader, x.obj, func);//{ obj : TExpr; pos : int; len : int; } // 0-based
+        | MacroEnvelope         as x => Visit(funHeader, x.expanded, func); //{ original : PExpr; the_macro : IMacro; expanded : TExpr; expandedPExpr : PExpr; }
+        | PropertyMember        as x => Visit(funHeader, x.obj, func); //{ obj : TExpr; prop : IProperty; }
+        | EventMember           as x => Visit(funHeader, x.obj, func);//{ obj : TExpr; ev : IEvent; }
+        | Block                 as x => Visit(funHeader, x.body, func);//{ jump_out : LocalValue; body : TExpr; }
+        | Cache                 as x => Visit(funHeader, x.desc.RefIs, func); Visit(funHeader, x.desc.TExpr, func); Visit(funHeader, x.body, func); //{ desc : CacheDesc; mutable body : TExpr; }
+        | Label                 as x => Visit(funHeader, x.body, func); //{ id : int; body : TExpr; }
+        | If                    as x => Visit(funHeader, x.cond, func); Visit(funHeader, x.e_then, func); Visit(funHeader, x.e_else, func);//{ cond : TExpr; e_then : TExpr; e_else : TExpr;
+        | HasType               as x => Visit(funHeader, x.expr, func);//{ expr : TExpr; test_ty : FixedType; }
+        | TryFinally            as x => func(expr); Visit(funHeader, x.body, func);  Visit(funHeader, x.handler, func);//{ body : TExpr; handler : TExpr; }
+        | Try                   as x => //{ body : TExpr; mutable cases : list [TryCase]; }
+          func(expr);
+          when (x.cases != null)
+            foreach (c in x.cases)
+            {
+              | Fault  as y => Visit(funHeader, y.handler, func);//{ handler : TExpr; }
+              | Catch  as y => Visit(funHeader, y.handler, func);//{ exn : LocalValue; handler : TExpr; }
+              | Filter as y => Visit(funHeader, y.handler, func); Visit(funHeader, y.filter, func);//{ exn : LocalValue; filter : TExpr; handler : TExpr; }
+            }
+          Visit(funHeader, x.body, func);
+
+        | Call                  as x =>
+          func(expr);
+          Visit(funHeader, x.func, func);
+          when (x.parms != null)
+            foreach (p in x.parms)
+              Visit(funHeader, p.expr, func);
+
+        | Tuple                 as x => //{ args : list [TExpr]; }
+          func(expr);
+          when (x.args != null)
+            foreach (a in x.args)
+              Visit(funHeader, a, func);
+
+        | Array                 as x => //{ args : list [TExpr]; dimensions : list [TExpr]; }
+          func(expr);
+          when (x.args != null)
+            foreach (a in x.args)
+              Visit(funHeader, a, func);
+          when (x.dimensions != null)
+            foreach (d in x.dimensions)
+              Visit(funHeader, d, func);
+
+        | ArrayIndexer          as x => //{ obj : TExpr; args : list [TExpr]; }
+          Visit(funHeader, x.obj, func);
+          when (x.args != null)
+            foreach (a in x.args)
+              Visit(funHeader, a, func);
+
+        | Delayed               as x => //{ susp : Typer.DelayedTyping; }
+          when (x.susp.DtKind is Typer.DelayedTyping.Kind.Resolved as r)
+          {
+            Visit(funHeader, r.expr, func);
+            foreach (p in r.parms)
+              Visit(funHeader, p.expr, func);
+          }
+
+        | DefFunctionsIn        as dfi => //{ funs : list [TFunHeader]; mutable body : TExpr; }
+          //foreach (f in dfi.funs)
+          //  Visit(f, dfi.body, func);
+
+          Visit(funHeader, dfi.body, func);
+
+        | Match                 as m => //{ expr : TExpr; cases : list [TMatchCase]; }
+          Visit(funHeader, m.expr, func);
+          foreach (c in m.cases)
+          {
+            foreach ((p, e, elems) in c.patterns)
+            {
+              Visit(funHeader, e, func);
+              foreach ((local, e2) in elems)
+              {
+                Visit(funHeader, e2, func);
+                _ = local;
+              }
+              _ = p;
+            }
+
+            Visit(funHeader, c.body, func);
+          }
+
+        | SelfTailCall          as x => //{ func : TExpr; parms : list [Param]; }
+          Visit(funHeader, x.func, func);
+          foreach (p in x.parms)
+            Visit(funHeader, p.expr, func);
+
+        | MultipleAssign        as x => //{ assigns : list [LocalValue * TExpr]; }
+          foreach ((local, e) in x.assigns)
+          {
+            Visit(funHeader, e, func);
+            _ = local;
+          }
+
+        | Switch                as x => //{ indexing_expr : TExpr; default : option [TExpr]; cases : list [int * TExpr]; }
+          Visit(funHeader, x.indexing_expr, func);
+          when (x.default is Some(e))
+            Visit(funHeader, e, func);
+          foreach ((x, e) in x.cases)
+          {
+            Visit(funHeader, e, func);
+            _ = x;
+          }
+
+        | Def                   as x => Visit(funHeader, x.expr, func); Visit(funHeader, x.into, func); //{ mutable expr : TExpr; mutable into : TExpr; }
+        | Use                   as x => Visit(funHeader, x.expr, func); Visit(funHeader, x.def_of, func); //{ mutable expr : TExpr; mutable def_of : TExpr.Def; }
+      }
+    }
+
+    public static BoolLiteral(mgr : ManagerClass, val : bool) : TExpr
+    {
+      TExpr.Literal(mgr.InternalType.Boolean, Nemerle.Compiler.Literal.Bool(val));
+    }
+
+    public static TrueLiteral(mgr : ManagerClass)  : TExpr { BoolLiteral(mgr, true) }
+    public static FalseLiteral(mgr : ManagerClass) : TExpr { BoolLiteral(mgr, false) }
+  }
+} // namespace

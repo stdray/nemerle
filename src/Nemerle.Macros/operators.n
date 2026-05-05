@@ -1,0 +1,380 @@
+﻿using Nemerle.Collections;
+using Nemerle.IO;
+using Nemerle.Utility;
+
+using Nemerle.Compiler;
+using Nemerle.Compiler.Typedtree;
+using Nemerle.Macros;
+
+using PT        = Nemerle.Compiler.Parsetree;
+using PExpr     = Nemerle.Compiler.Parsetree.PExpr;
+using Splicable = Nemerle.Compiler.Parsetree.Splicable;
+
+namespace Nemerle.Core
+{
+
+  module Operators
+  {
+    [Hygienic]
+    public CacheAssignExpr (e : PT.PExpr) : PT.PExpr * PT.PExpr
+    {
+      def desc =
+        match (e)
+        {
+          | <[ $tab [$idx] ]> =>
+            def new_idx = <[ $(Macros.NewSymbol () : name) ]>;
+            CacheDesc (<[ $tab [$new_idx] ]>, <[ def $new_idx = $idx ]>)
+
+          | <[ $tab [.. $idxes] ]> =>
+            def idx_exprs = idxes.Map(_ => <[ $(Macros.NewSymbol () : name) ]>);
+            CacheDesc (<[ $tab [.. $idx_exprs] ]>, <[ def (.. $idx_exprs) = (.. $idxes) ]>)
+
+          | _ => CacheDesc(e, null)
+        };
+
+      ( <[ $(TExpr.Cache (desc, null) : typed) ]>,
+        <[ $(TExpr.CacheRef (desc) : typed) ]> )
+    }
+
+    public HandlePartialApplication(e1 : PT.PExpr, e2 : PT.PExpr, transform : PT.PExpr * PT.PExpr -> PT.PExpr) : PT.PExpr
+    {
+      match((e1, e2))
+      {
+        | (Wildcard, Wildcard) => <[ fun (e1, e2) { $(transform(<[ e1 ]>,  <[ e2 ]>)) } ]>
+        | (e1,       Wildcard) => <[ fun     (e2) { $(transform(   e1,     <[ e2 ]>)) } ]>
+        | (Wildcard,       e2) => <[ fun (e1)     { $(transform(<[ e1 ]>,     e2   )) } ]>
+        | (e1,             e2) => transform(e1, e2)
+      }
+    }
+  }
+
+  macro @&& (e1, e2)
+  {
+    Operators.HandlePartialApplication(e1, e2,
+      (e1, e2) => <[ match ($e1)
+                     {
+                      | true => $e2
+                      | _    => false
+                     }
+                   ]>)
+  }
+
+  macro @|| (e1, e2)
+  {
+    Operators.HandlePartialApplication(e1, e2,
+      (e1, e2) => <[ match ($e1)
+                     {
+                      | true => true
+                      | _    => $e2
+                     }
+                   ]>)
+  }
+
+  macro @%|| (e1, e2)
+  {
+    Operators.HandlePartialApplication(e1, e2,
+      (e1, e2) => <[ ($e1 | $e2) != 0 ]>)
+  }
+
+  macro @%&& (e1, e2)
+  {
+    Operators.HandlePartialApplication(e1, e2,
+      (e1, e2) => <[ ($e1 & $e2) != 0 ]>)
+  }
+
+  macro @%^^ (e1, e2)
+  {
+    Operators.HandlePartialApplication(e1, e2,
+      (e1, e2) => <[ ($e1 ^ $e2) != 0 ]>)
+  }
+
+  macro @++ (e)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = _N_op_Increment ($safe) ]>
+  }
+
+  macro @-- (e)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = _N_op_Decrement ($safe) ]>
+  }
+
+  macro @+= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe + $val ]>
+  }
+
+  macro @-= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe - $val ]>
+  }
+
+  macro @*= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe * $val ]>
+  }
+
+  macro @/= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe / $val ]>
+  }
+
+  macro @<<= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe << $val ]>
+  }
+
+  macro @>>= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe >> $val ]>
+  }
+
+  macro @%= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe % $val ]>
+  }
+
+  macro @|= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe %| $val ]>
+  }
+
+  macro @&= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe %& $val ]>
+  }
+
+  macro @^= (e, val)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e);
+    <[ $cached; $safe = $safe %^ $val ]>
+  }
+
+  macro @<-> (e1, e2)
+  {
+    def (cached1, safe1) = Operators.CacheAssignExpr(e1);
+    def (cached2, safe2) = Operators.CacheAssignExpr(e2);
+    <[
+      $cached1;
+      $cached2;
+      def tmp = $safe1;
+      $safe1 = $safe2;
+      $safe2 = tmp;
+    ]>
+  }
+
+  macro @::= (e1, e2)
+  {
+    def (cached, safe) = Operators.CacheAssignExpr(e1);
+    <[ $cached; $safe = $e2 :: $safe ]>
+  }
+
+  macro @=> (parmsExpr, body)
+  {
+    def convert_to_parm (x)
+    {
+      mutable tyLoc   = Location.Default;
+      mutable nameLoc = x.Location;
+      def param = Util.locate(x.Location, match (x)
+      {
+        | <[ _ ]>                  => <[ parameter: $(Util.tmpname ("wildcard") : dyn) ]>
+        | <[ $(nm : name) ]>       => nameLoc = nm.Location;
+                                      <[ parameter: $(nm : name) ]>
+
+        | <[ _ : $ty ]> as tyEnf   => tyLoc = ty.Location;
+                                      nameLoc = tyEnf.expr.Location;
+                                      def nm = Util.tmpname ("wildcard");
+                                      <[ parameter: $(nm : dyn) : $ty ]>
+
+        | <[ $(nm : name) : $ty ]> => tyLoc = ty.Location;
+                                      nameLoc = nm.Location;
+                                      <[ parameter: $(nm : name) : $ty ]>
+
+        | PT.PExpr.Tuple(_args) as pattern =>
+          def ty = PT.PExpr.Wildcard (tyLoc);
+          def name = PT.Splicable.Name (pattern.Location, Macros.NewSymbol("pat"));
+          nameLoc  = tyLoc;
+          PT.PParameter (nameLoc, name, ty, AttributesAndModifiers(0, []), pattern)
+
+        | _ =>
+          Message.Error (x.Location, $"unsupported syntax for parameter of 'parms => body' lambda expression: $x");
+          <[ parameter: $(Util.tmpname ("wildcard") : dyn) ]>
+      });
+      param.Location = x.Location;
+      param.name.Location = nameLoc;
+      param.Type.Location = tyLoc;
+      param
+    }
+
+    def convert_to_ref (x)
+    {
+      | <[ parameter: $(nm : name) ]> => PT.PExpr.Ref (x.Location, nm)
+      | _ => Message.FatalError (x.Location, "illegal spliced parameter?")
+    }
+
+    def convert_body (body, parms, loc)
+    {
+      match(body)
+      {
+        | <[ match($(null)) { ..$cases } ]> =>
+          def match_val = match (parms)
+          {
+            | [] => null
+            | [<[ parameter: $(nm : name) ]> as x] => PT.PExpr.Ref (x.Location, nm)
+            | _ :: _ :: _ => PT.PExpr.Tuple.Create (loc, parms.Map (convert_to_ref))
+            | x :: _ => Message.FatalError (x.Location, "illegal spliced parameter?")
+          }
+          PT.PExpr.Match (body.Location, match_val, cases)
+        | _ => body
+      }
+    }
+
+    def loc = parmsExpr.Location;
+    def generatedParms = match (parmsExpr)
+    {
+      | PT.PExpr.Tuple as tuple when tuple.argsCount == 1 => [convert_to_parm (parmsExpr)]
+      | <[ () ]> => []
+      | <[ (..$parmsList) ]> => parmsList.Map (convert_to_parm)
+      | _ => [convert_to_parm (parmsExpr)]
+    }
+
+    def decomposedPatternParams = generatedParms.FoldLeft([], fun (p : PT.PParameter, acc : list[PT.PExpr]) {
+        if (p.PatternHack == null) acc
+        else
+        {
+          def res = <[ def $(p.PatternHack) = $(p.name.GetName () : name); ]>;
+          p.ResetPatternHack();
+          res :: acc
+        }
+      });
+
+    def newBody = if (decomposedPatternParams.IsEmpty) body
+                  else Util.locate(body.Location, <[ { ..$(decomposedPatternParams + [body]) } ]>);
+
+    def func = <[ fun (..$generatedParms) $(convert_body (newBody, generatedParms, loc)) ]>;
+    func.decl.header.Location = loc;
+    func
+  }
+
+  macro @??(exprA, exprB)
+  {
+    def typer = Macros.ImplicitCTX ();
+    def toption = typer.InternalType.Nemerle_option_tc;
+
+    def isOption (t)
+    {
+      toption.Equals (t)
+      || (t.BaseType != null && toption.Equals(t.BaseType))
+    }
+    def hasValuePattern(ti : TypeInfo) : bool
+    {
+      def isBoolPropertyOrField(members : list[IMember]) : bool
+      {
+        | [_ is IField] | [_ is IProperty] => true
+        | _ => false
+      }
+      isBoolPropertyOrField(ti.LookupMember("Value",    false)) &&
+      isBoolPropertyOrField(ti.LookupMember("HasValue", false))
+    }
+
+    def tExprA = typer.TypeExpr(exprA);
+    def tExprB = typer.TypeExpr(exprB);
+    def tR     = typer.FreshTypeVar(); // result type
+    def exprA2 = PExpr.Typed(exprA.Location, tExprA);
+    def exprB2 = PExpr.Typed(exprA.Location, tExprB);
+
+    def resolve(aExprIsOption : bool, check, lastTry)
+    {
+      match (tExprB.Type.Hint)
+      {
+        | Some(Class(tiB, _)) when aExprIsOption =>
+            if (check(tiB))
+              Some(<[ match ($exprA2) { | Some as x => x | _ => $exprB2 } ]>)
+            else
+              Some(<[ match ($exprA2) { | Some(x)   => x | _ => $exprB2 } ]>)
+
+        | Some(Class(tiB, _)) =>
+          match (exprA)
+          {
+            | PExpr.Ref | Base | This => 
+              def v = if (check(tiB)) <[ $exprA2 ]> else <[ $exprA2.Value ]>;
+              Some(<[ match ($exprA2.HasValue) { | true => $v | _ => $exprB2 } ]>)
+              
+            | _ =>
+              def v = if (check(tiB)) <[ x ]> else <[ x.Value ]>;
+              Some(<[ def x = $exprA2; match (x.HasValue) { | true => $v | _ => $exprB2 } ]>)
+          }
+
+        | None =>
+            when (lastTry)
+              Message.Error(exprB.Location, $"Can't infer type of right operand ($exprB2) of the `??' operator");
+            None()
+        | _ => Some(<[ match ($exprA2) { null => $exprB2 | x => x } ]>)
+      }
+    }
+
+    def checkTypes(lastTry)
+    {
+      match (tExprA.Type.Hint)
+      {
+        | None when !lastTry => None()
+        | None  =>
+            Message.Error(exprA.Location, $"Can't infer type of left operand ($exprA2) of the `??' operator");
+            None()
+
+        | Some(Class(tiA, [_])) when isOption(tiA)        => resolve(true,  isOption,        lastTry)
+        | Some(Class(tiA, _))   when hasValuePattern(tiA) => resolve(false, hasValuePattern, lastTry)
+        | Some(Class(tiA, _))   when tiA.IsValueType =>
+            Message.Error(exprA.Location, $"Left operand ($exprA2) of the `??' operator should be reference type or has Value and HasValue members (ie support option or Nulable idiom).");
+            None()
+
+        | _ => Some(<[ match ($exprA2) { null => $exprB2 | x => x } ]>)
+      }
+    }
+
+    typer.DelayMacro(checkTypes, tR);
+  }
+
+  macro @**(e1, e2)
+  {
+    <[ System.Math.Pow($e1, $e2) ]>
+  }
+
+  macro @?. (expr1, expr2)
+  {
+    def makeMemberAccess(loc, n) { PExpr.Member(loc,  <[ e1 ]>, Splicable.Name(loc, n)) }
+    def makeComplation  (loc, n) { PExpr.Member(loc,  <[ e1 ]>, Splicable.HalfId(loc, n)) }
+    def loc = expr2.Location;
+    def e2 =
+      match (expr2)
+      {
+        | Ref(n)                    => makeMemberAccess(loc, n)
+        | Call(Ref(n), parms)       => PExpr.Call(loc, makeMemberAccess(loc, n), parms)
+        | Indexer(Ref(n), parms)    => PExpr.Indexer(loc, makeMemberAccess(loc, n), parms)
+        | ToComplete(n)             => makeComplation(loc, n)
+        | Call(ToComplete(n), _)    => makeComplation(loc, n)
+        | Indexer(ToComplete(n), _) => makeMemberAccess(loc, n)
+        | _ => Message.FatalError(expr2.Location, $"The expression of this ($(expr2.GetType())) type not supported with operator '?.'");
+      };
+
+    <[
+      def e1 = $expr1;
+      mutable result;
+
+      when (e1 != null)
+        result = $e2;
+
+      result
+    ]>
+  }
+}

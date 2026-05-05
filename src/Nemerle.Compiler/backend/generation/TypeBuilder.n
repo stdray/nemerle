@@ -1,0 +1,316 @@
+﻿using Nemerle.Compiler.Typedtree;
+using Nemerle.Collections;
+using Nemerle.Imperative;
+using Nemerle.Utility;
+
+using System.IO;
+using System.Diagnostics.SymbolStore;
+using System.Diagnostics;
+using System.Security;
+
+using DN = dnlib.DotNet;
+
+namespace Nemerle.Compiler
+{
+  public partial class TypeBuilder : IBackendType
+  {
+    private mutable _typeBuilder : DN.TypeDef;
+
+    /**
+     * This method makes a skeleton of a class -- the class partial type and
+     * partial types for the nested classes are created. The parent class and
+     * the interfaces being implemented are assumed to have been processed
+     * before constructing a dependant class. All the declarations and method
+     * implementations will be created successively in subsequent passes.
+     */
+    internal CreateEmitBuilder () : void
+    {
+      when (_typeBuilder != null)
+        return;
+
+      /* create optional custom attributes for this type */
+      def custom_attribute =
+        match (tydecl)
+        {
+          | TypeDeclaration.Variant (decls) =>
+            make_nemerle_variant_attribute (decls)
+
+          | TypeDeclaration.VariantOption =>
+            def has_co_ctor = GetConstantObject () != null;
+            make_nemerle_variant_option_attribute (has_co_ctor)
+
+          | TypeDeclaration.Alias (t) =>
+            make_nemerle_type_alias_attribute (t)
+
+          | _ => null
+        };
+
+      /* decide the new type attributes */
+      def is_nested = DeclaringType != null;
+
+      def type_kind_attrs =
+        match (tydecl)
+        {
+          | TypeDeclaration.Variant
+          | TypeDeclaration.VariantOption
+          | TypeDeclaration.Class          => DN.TypeAttributes.Class
+          | TypeDeclaration.Alias // we pretend type alias is an interface
+          | TypeDeclaration.Interface      => DN.TypeAttributes.Interface %| DN.TypeAttributes.Abstract
+          | TypeDeclaration.Enum           => DN.TypeAttributes.Sealed %| DN.TypeAttributes.Class
+        };
+
+      mutable attrs = make_type_attributes (Attributes, is_nested, IsStruct) %| type_kind_attrs;
+      mutable typarms_len = TyparmsCount;
+
+      when (is_nested)
+        typarms_len -= DeclaringType.TyparmsCount;
+
+      def generic_mark_suffix =
+        match (typarms_len) {
+          | 0 => ""
+          | l => "`" + l.ToString ()
+        }
+
+      def empty_struct = IsStruct && GetFields (BindingFlags.Instance %|
+                                                BindingFlags.Public %|
+                                                BindingFlags.NonPublic).IsEmpty;
+
+      def no_static_ctor = GetConstructors (BindingFlags.Static %|
+                                            BindingFlags.Public %|
+                                            BindingFlags.NonPublic).IsEmpty;
+
+      when (no_static_ctor)
+        attrs = attrs %| DN.TypeAttributes.BeforeFieldInit; /* [DF] mimick mcs behaviour */
+
+      /* create the type builder for a top-level or nested class declaration */
+      _typeBuilder = DN.TypeDefUser(if (is_nested) null else namespace_nd.Parent.GetDisplayName(), Name + generic_mark_suffix);
+      if (IsStruct)
+        _typeBuilder.BaseType = InternalType.ValueType.ToBackendType().TypeRef;
+      else when (IsEnum)
+        _typeBuilder.BaseType = InternalType.Enum.ToBackendType().TypeRef;
+
+      _typeBuilder.Attributes = attrs;
+
+      when (empty_struct)
+        _typeBuilder.ClassSize = 1;
+
+      if (is_nested)
+        (DeclaringType :> TypeBuilder).GetTypeBuilder().NestedTypes.Add(_typeBuilder);
+      else
+        TyManager.GetModuleBuilder().Types.Add(_typeBuilder);
+
+      // creates and store generic parameters in our StaticTyVars
+      foreach (t in typarms with index)
+      {
+        def gp = DN.GenericParamUser(index :> ushort, DN.GenericParamAttributes.NonVariant, t.Name);
+        _typeBuilder.GenericParameters.Add(gp);
+        t.SetGenericBuilder(gp);
+      }
+
+      when (custom_attribute != null)
+      {
+        TyManager.contains_nemerle_specifics = true;
+        _typeBuilder.CustomAttributes.Add(custom_attribute);
+      }
+
+      when (extension_patterns.Count > 0)
+        TyManager.contains_nemerle_specifics = true;
+
+      foreach (pair in Manager.AttributeCompiler.GetPermissionSets(GlobalEnv, modifiers.custom_attrs))
+      {
+        def declSecurity = DN.DeclSecurityUser(pair.Key, pair.Value);
+        _typeBuilder.DeclSecurities.Add(declSecurity);
+        _typeBuilder.HasSecurity = true;
+      }
+    }
+
+    /**
+     * Builds a Nemerle variant attribute
+     */
+    private make_nemerle_variant_attribute (decls : list [TypeInfo]) : DN.CustomAttribute
+    {
+      def names = decls.Map (fun (decl) { decl.FullName });
+      Manager.AttributeCompiler.MakeEmittedAttribute(InternalType.VariantAttribute_tc, NString.Concat (",", names))
+    }
+
+    /**
+     * Builds a Nemerle type alias
+     */
+    private make_nemerle_type_alias_attribute (t : FixedType) : DN.CustomAttribute
+    {
+      Manager.AttributeCompiler.MakeEmittedAttribute(InternalType.TypeAliasAttribute_tc, TyCodec.EncodeType (t))
+    }
+
+    /**
+     * Builds a Nemerle variant option attribute
+     */
+    private make_nemerle_variant_option_attribute (is_const : bool) : DN.CustomAttribute
+    {
+      def typeInfo = if (is_const) InternalType.ConstantVariantOptionAttribute_tc else InternalType.VariantOptionAttribute_tc;
+      AttributeCompilerClass.MakeEmittedAttribute(typeInfo)
+    }
+
+    /**
+     * Converts Nemerle modifiers to the Framework type attributes.
+     */
+    private static make_type_attributes (attrs : NemerleModifiers, is_nested : bool, is_struct : bool = false) : DN.TypeAttributes
+    {
+      mutable result =
+        if (is_struct)
+          DN.TypeAttributes.SequentialLayout /* [DF] default struct layout is sequential */
+        else
+          DN.TypeAttributes.AutoLayout;
+      when (attrs %&& NemerleModifiers.Public)
+        if (is_nested) result |= DN.TypeAttributes.NestedPublic
+        else result |= DN.TypeAttributes.Public;
+      when (attrs %&& NemerleModifiers.Private)
+        if (is_nested) result |= DN.TypeAttributes.NestedPrivate
+        else Message.Error ("Private is not allowed for top level types");
+      when (attrs %&& NemerleModifiers.Protected)
+        if (is_nested) result |= DN.TypeAttributes.NestedFamily
+        else Message.Error ("Protected is not allowed for top level types");
+      when (attrs %&& NemerleModifiers.Internal && is_nested)
+        result |= DN.TypeAttributes.NestedFamORAssem;
+      when (attrs %&& NemerleModifiers.Abstract) result |= DN.TypeAttributes.Abstract;
+      when (attrs %&& NemerleModifiers.Sealed) result |= DN.TypeAttributes.Sealed;
+      when (attrs %&& NemerleModifiers.SpecialName) result |= DN.TypeAttributes.SpecialName;
+      when (attrs %&& NemerleModifiers.Static) result |= DN.TypeAttributes.Abstract | DN.TypeAttributes.Sealed;
+
+      result
+    }
+
+
+    /**
+     *  Set up custom attributes on members of this TypeBuilder. Compile method's bodies.
+     */
+    internal EmitImplementation() : void
+    {
+      unless (IsFinalized)
+      {
+        IsFinalized = true;
+
+        foreach (m is MemberBuilder in member_list)
+          m.Compile();
+
+        unless (modifiers.IsEmpty)
+        {
+          def mask = if (_typeBuilder.IsEnum) System.AttributeTargets.Enum else 
+                     if (_typeBuilder.IsInterface) System.AttributeTargets.Interface else 
+                     System.AttributeTargets.Class;
+
+          modifiers.SaveCustomAttributes(this,
+            fun (target, a, shouldEmit)
+            {
+              if (target %&& mask)
+              {
+                when (shouldEmit)
+                {
+                  if (a.TypeFullName == "System.SerializableAttribute")
+                    _typeBuilder.IsSerializable = true;
+                  else
+                    _typeBuilder.CustomAttributes.Add(a);
+                }
+                null
+              }
+              else if (a != null)
+                "type " + ToString()
+              else
+                null
+            })
+        }
+
+        //Message.Debug ("finalizing " + FullName);
+        unless (Message.SeenError)
+          this.FinalizeType();
+        //Message.Debug ("finalized " + FullName);
+      }
+    }
+
+    /**
+     * This methods walks the class and adds field and method declarations.
+     * The method implementation will be filled in a separate pass.
+     */
+    internal CreateEmitDeclarations() : void
+    {
+      // nested types are skipped here
+      foreach (m is MemberBuilder in member_list)
+      {
+        // Message.Debug ($ "emit $m from $_typeBuilder");
+        m.CreateEmitBuilder(_typeBuilder);
+      }
+    }
+
+    internal UpdateEmittedInheritance () : void
+    {
+      when (reflection_inheritance_emitted)
+        return;
+
+      reflection_inheritance_emitted = true;
+
+      when (_typeBuilder.BaseType == null)
+      {
+        if (FullName.StartsWith ("Nemerle.Builtins.Array"))
+          _typeBuilder.BaseType = InternalType.Object.ToBackendType().TypeRef
+        else when (parent_type != null)
+          _typeBuilder.BaseType = parent_type.ToBackendType().TypeRef
+      }
+
+      foreach (ifaceType in InterfacesToImplement())
+      {
+        def impl = DN.InterfaceImplUser(ifaceType.ToBackendType().TypeRef);
+        _typeBuilder.Interfaces.Add(impl);
+      }
+
+      foreach (gp in typarms)
+        gp.UpdateConstraints();
+    }
+
+    public IsSystemTypeCreate : bool
+    {
+      get { _typeBuilder == null }
+    }
+
+    public TypeSig : DN.TypeSig
+    {
+      mutable _typeSig : DN.TypeDefOrRefSig;
+      get
+      {
+        when (_typeSig == null)
+        {
+          assert(_typeBuilder != null);
+          _typeSig = if (IsValueType) DN.ValueTypeSig(_typeBuilder) else DN.ClassSig(_typeBuilder);
+        }
+        _typeSig
+      }
+    }
+
+    public GetTypeBuilder() : DN.TypeDef
+      implements IBackendType.get_TypeRef
+    {
+      assert(_typeBuilder != null);
+      _typeBuilder
+    }
+
+    private mutable _typeSpecCache : TypeSpecCache;
+
+    public MakeGenericType(specialization : array[DN.TypeSig]) : IBackendType
+    {
+      when (_typeSpecCache == null)
+        _typeSpecCache = TypeSpecCache(this);
+
+      _typeSpecCache.GetTypeSpec(specialization)
+    }
+
+    MakeFieldRef(field : IField) : DN.IField
+      implements IBackendType.MakeFieldRef
+    {
+      (field :> IBackendField).FieldRef
+    }
+
+    MakeMethodRef(method : IMethod) : DN.IMethod
+      implements IBackendType.MakeMethodRef
+    {
+      (method :> IBackendMethod).MethodRef
+    }
+  } // class
+} // namespace

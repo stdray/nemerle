@@ -1,5 +1,0 @@
-namespace Nemerle.Compiler
-{
-  [System.Serializable, Record]
-  public sealed class CompilationAbortedException : System.Exception { }
-}

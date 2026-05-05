@@ -1,0 +1,317 @@
+using Nemerle.Collections;
+using Nemerle.IO;
+using Nemerle.Utility;
+
+using Nemerle.Compiler;
+using Nemerle.Compiler.Util;
+using Nemerle.Compiler.Typedtree;
+
+using System;
+using System.Diagnostics;
+
+using SCG   = System.Collections.Generic;
+
+namespace Nemerle.Compiler
+{
+  [Record]
+  public sealed class ICE : System.Exception {}
+
+  [Record]
+  public sealed class Recovery : System.Exception {}
+
+  [Record]
+  public sealed class BailOutException : System.Exception {}
+
+  public module Util 
+  {
+    [Obsolete("Use ManagerClass.GetNewId() instead.")]
+    public next_id (mgr : ManagerClass) : int
+    {
+      mgr.GetNewId()
+    }
+
+    public ice[T](msg : string = "(see backtrace)") : T
+    {
+      System.Diagnostics.Debug.Assert(false, "ICE! (Internal Compiler Error)", msg);
+      throw ICE (msg)
+    }
+
+    public is_capitalized (s : string) : bool
+    {
+      def idx = s.LastIndexOf('.');
+      char.IsUpper(s[idx + 1])
+    }
+
+    public tmpname(kind : string) : string
+    {
+      def sb = System.Text.StringBuilder("_N_").Append(kind).Append("_");
+      escape_in_buffer(sb, kind, 3);
+      sb.Append(ManagerClass.Instance.GetNewId()).ToString()
+    }
+
+    private escape_in_buffer (sb : System.Text.StringBuilder, str : string, offset : int) : void
+    {
+      for (mutable i = 0; i < str.Length; i++)
+        unless (char.IsLetterOrDigit (str[i]))
+          sb.Chars[i+offset] = '_';
+    }
+    
+    public Escape (str : string) : string
+    {
+      def sb = System.Text.StringBuilder (str);
+      escape_in_buffer (sb, str, 0);
+      sb.ToString ()
+    }
+
+    public ParseGenericTypeName(str : string) : string * int
+    {
+      def index = str.LastIndexOf('`');
+      if (index < 0)
+        (str, 0)
+      else
+      {
+        mutable paramCount;
+        for (mutable i = index + 1; i < str.Length; ++i)
+        {
+          def c = str[i] :> int;
+          when ('0' <= c && c <= '9')
+            paramCount = paramCount * 10 + (c - '0');
+        }
+        (str.Substring(0, index), paramCount)
+      }
+    }
+
+    public QidOfExpr (expr : Parsetree.PExpr) : option [list [string] * Parsetree.Name]
+    {
+      qidl_of_expr (expr)
+    }
+
+    internal ExprOfQid (fullname : string) : Parsetree.PExpr
+    {
+      Parsetree.PExpr.FromQualifiedIdentifier (ManagerClass.Instance, fullname)
+    }
+
+    public ExprOfList (parts : list [string]) : Parsetree.PExpr
+    {
+      expr_of_qidl (parts)
+    }
+    
+    internal qidl_of_expr (expr : Parsetree.PExpr) : option [list [string] * Parsetree.Name]
+    {
+      def loop (e, acc)
+      {
+        match (e)
+        {
+          | <[ $(x : name) ]> => Some ((x.idl :: acc, x))
+          | <[ $obj . $(fld : dyn) ]> => loop (obj, fld :: acc)
+          | Member (obj, HalfId (fld)) => loop (obj, fld.idl :: acc)
+          | ToComplete (name) => Some (name.Id :: acc, name)
+          | _ => None ()
+        }
+      };
+      loop (expr, [])
+    }
+
+    public QidOfList (l : list [string]) : string
+    {
+      qid_of_list (l);
+    }
+    
+    internal qid_of_list (l : list [string]) : string
+    {
+      Nemerle.Utility.NString.Concat (".", l)
+    }
+
+    internal expr_of_qidl (parts : list [string]) : Parsetree.PExpr
+    {
+      NList.FoldLeft (parts, null, fun (name : string, expr) {
+        if (expr == null)
+          <[ $(name : dyn) ]>
+        else
+          <[ $expr . $(name : dyn) ]>
+      })
+    }
+
+    public set (loc : Location, expr : Parsetree.PExpr) : Parsetree.PExpr
+    {
+      expr.Location = loc;
+      expr;
+    }
+  }
+
+  [ManagerAccess (ManagerClass.Instance)]
+  public module Message 
+  {
+    public Error (loc : Location, m : string) : void
+    {
+      def loc =
+        if (loc == Location.Default) LocationStack.Top()
+        else loc;
+
+      Manager.RunErrorOccured (loc, m);
+
+      Message.Manager.Message_ErrorCount++;
+      if (Manager.Options.ColorMessages)
+        Message.report (loc, "\e[01;31merror\e[0m: " + m)
+      else
+        Message.report (loc, "error: " + m);
+
+      when (Manager.Options.ThrowOnError)
+        throw BailOutException ();
+    }
+
+    public Error (m : string) : void
+    {
+      Message.Error (Location.Default, m)
+    }
+
+    public Warning (loc : Location, m : string) : void
+    {
+      Warning (-1, loc, m)
+    }
+
+    public Warning (m : string) : void { Warning (-1, Location.Default, m) }
+
+    public Warning (code : int, loc : Location, m : string) : void
+    {
+      def loc = findLoc (loc);
+      when (code == -1 || Manager.Options.Warnings.IsEnabledAt (loc, code))
+      {
+        Manager.RunWarningOccured(loc, m);
+  
+        Message.Manager.Message_WarningCount++;
+
+        def m = if (code == -1) m else $"N$code: $m";
+        
+        if (Manager.Options.Warnings.TreatWarningsAsErrors)
+          Message.Error(loc, "warning: " + m)
+        else if (Manager.Options.ColorMessages)
+          Message.report (loc, "\e[01;33mwarning\e[0m: " + m)
+        else
+          Message.report (loc, "warning: " + m);
+      }
+    }
+
+    public Warning (code : int, m : string) : void
+    {
+      Warning (code, Location.Default, m)
+    }
+
+    findLoc (loc : Location) : Location
+    {
+      if (loc == Location.Default) LocationStack.Top()
+      else loc;
+    }
+    
+    public Hint (loc : Location, m : string) : void
+    {
+      if (Manager.Options.ColorMessages)
+        Message.report (loc, "\e[01;32mhint\e[0m: " + m)
+      else
+        Message.report (loc, "hint: " + m);
+    }
+
+    public Hint (m : string) : void
+    {
+      Message.Hint (Location.Default, m)
+    }
+
+    public HintOnce (loc : Location, m : string) : void
+    {
+      if (Manager.IsIntelliSenseMode)
+        Message.Hint (loc, m)
+      else
+      {
+        unless (Manager.Message_emitted_hints.Contains (m))
+        {
+          if (Manager.Options.ColorMessages)
+            Message.report (loc, "\e[01;32mhint\e[0m: " + m)
+          else
+            Message.report (loc, "hint: " + m);
+
+          Manager.Message_emitted_hints.Add (m, 0)
+        }
+      }
+    }
+
+    public HintOnce (code : int, loc : Location, m : string) : void
+    {
+      def loc = findLoc (loc);
+      when (Manager.Options.Warnings.IsEnabledAt (loc, code))
+        HintOnce (loc, m);
+    }
+
+    public HintOnce (code : int, m : string) : void
+    {
+      HintOnce (code, Location.Default, m);
+    }
+    
+    public HintOnce (m : string) : void
+    {
+      Message.HintOnce (Location.Default, m)
+    }
+
+    // set to 'true' to view debug output under IDE debugger
+    internal mutable ListenDebug : bool = false;
+
+    public Debug (loc : Location, m : string) : void
+    {
+      def m = "debug: " + m;
+      Message.report (loc, m);
+      when(ListenDebug)
+        System.Diagnostics.Debug.WriteLine(loc.ToString() + m);
+    }
+
+    public Debug (m : string) : void
+    {
+      Message.Debug (Location.Default, m)
+    }
+
+    public FatalError2 (loc : Location, m : string) : void
+    {
+      Message.Error (loc, m);
+      unless (Manager.IsIntelliSenseMode)
+        throw Recovery ()
+    }
+
+    public MaybeBailout (fscked_up : bool) : void
+    {
+      unless (Manager.Options.IgnoreConfusion && fscked_up)
+        when (SeenError)
+        {
+          when (fscked_up)
+            printf("confused by earlier errors bailing out\n");
+          if (Manager.Options.IgnoreConfusion)
+            throw Recovery()
+          else
+            System.Environment.Exit(1)
+        }
+    }
+
+    public SeenError : bool
+    {
+      get { Manager.Message_ErrorCount != 0 }
+    }
+
+    public ErrorCount : int
+    {
+      get { Manager.Message_ErrorCount }
+    }
+
+    public MaybeBailout() : void
+    {
+      Message.MaybeBailout (false)
+    }
+    
+    internal report(loc : Location, m : string) : void
+    {
+      def loc2 = if (loc == Location.Default) LocationStack.Top() else loc;
+      Manager.KillProgressBar();
+      def msg = loc2.ToMessageString() + m;
+      Manager.RunMessageOccured(loc2, msg);
+      when (Manager.Message_output == null)
+        Manager.Message_output = System.Console.Out;
+      fprintf(Manager.Message_output, "%s\n", msg)
+    }
+  }
+}

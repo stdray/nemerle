@@ -1,0 +1,88 @@
+using Nemerle;
+using Nemerle.Collections;
+using Nemerle.Compiler.Backend;
+using Nemerle.Imperative;
+using System;
+using System.Reflection;
+
+using DN = dnlib.DotNet;
+using NC = Nemerle.Compiler;
+using PT = Nemerle.Compiler.Parsetree;
+
+namespace Nemerle.Compiler
+{
+  public partial class StaticTypeVar : IBackendType
+  {
+    mutable _systemType : DN.GenericParam;
+
+    public this(man : ManagerClass, name : string, gtype : DN.GenericParam)
+    {
+      this(man, name);
+      _systemType = gtype;
+    }
+
+    public TypeSig : DN.GenericSig
+    {
+      mutable _typeSig : DN.GenericSig;
+      get
+      {
+        when (_typeSig == null)
+        {
+          assert(_systemType != null, ToString());
+          _typeSig =
+            if (_systemType.DeclaringMethod != null)
+              DN.GenericMVar(_systemType.Number, _systemType.DeclaringMethod)
+            else
+              DN.GenericVar(_systemType.Number, _systemType.DeclaringType)
+        }
+        _typeSig
+      }
+    }
+
+    public TypeRef : DN.TypeSpec
+    {
+      mutable _typeRef : DN.TypeSpec;
+      get
+      {
+        when (_typeRef == null)
+          _typeRef = DN.TypeSpecUser(TypeSig);
+        _typeRef
+      }
+    }
+
+    internal SetGenericBuilder(x : DN.GenericParamUser) : void
+    {
+      Util.cassert(_systemType == null);
+      Util.cassert(x != null);
+      x.Flags = special;
+      _systemType = x;
+    }
+
+    internal UpdateConstraints() : void
+    {
+      foreach (c in constraints)
+      {
+        def constraint = c.ToBackendType().TypeRef;
+        _systemType.GenericParamConstraints.Add(DN.GenericParamConstraintUser(constraint));
+      }
+    }
+
+    MakeGenericType(_ : array[DN.TypeSig]) : IBackendType
+      implements IBackendType.MakeGenericType
+    {
+      Util.ice($"Cannot make generic type from type $TypeSig")
+    }
+
+    MakeFieldRef(field : IField) : DN.IField
+      implements IBackendType.MakeFieldRef
+    {
+      (field :> IBackendField).FieldRef
+    }
+
+    MakeMethodRef(method : IMethod) : DN.IMethod
+      implements IBackendType.MakeMethodRef
+    {
+      (method :> IBackendMethod).MethodRef
+    }
+  }
+}

@@ -1,8 +1,0 @@
-namespace Nemerle.Compiler
-{
-  public interface IEvent : IMember
-  {
-    GetAdder() : IMethod;
-    GetRemover() : IMethod;
-  }
-} // ns

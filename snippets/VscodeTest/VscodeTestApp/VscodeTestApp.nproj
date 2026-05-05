@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot</Nemerle>
     <OutputType>Exe</OutputType>
     <AssemblyName>VscodeTestApp</AssemblyName>
     <NoStdLib>true</NoStdLib>

@@ -1,0 +1,42 @@
+using Nemerle.Assertions;
+using Nemerle.Collections;
+using Nemerle.Utility;
+
+using DN = dnlib.DotNet;
+
+namespace Nemerle.Compiler
+{
+  [Record]
+  public abstract class TypeSpec[TTypeSig] : IBackendType
+    where TTypeSig : DN.TypeSig
+  {
+    public TypeSig : TTypeSig { get; }
+
+    public TypeRef : DN.TypeSpec
+    {
+      [RecordIgnore] mutable _typeRef : DN.TypeSpec;
+      get
+      {
+        when (_typeRef == null)
+          _typeRef = DN.TypeSpecUser(TypeSig);
+        _typeRef
+      }
+    }
+
+    MakeGenericType(_ : array[DN.TypeSig]) : IBackendType
+      implements IBackendType.MakeGenericType
+    {
+      Util.ice($"Cannot make generic type from type $TypeSig")
+    }
+
+    public virtual MakeFieldRef(field : IField) : DN.IField
+    {
+      (field :> IBackendField).FieldRef
+    }
+
+    public virtual MakeMethodRef(method : IMethod) : DN.IMethod
+    {
+      (method :> IBackendMethod).MethodRef
+    }
+  } // class
+} // namespace
