@@ -1,0 +1,107 @@
+using Nemerle.Compiler;
+using Nemerle.Collections;
+using Nemerle.Completion2;
+using Nemerle.Compiler.Utils;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.Completion2
+{
+  /// IIdeProject backed by LSP workspace.
+  public class LspIdeProject : IIdeProject
+  {
+    _assemblyRefs  : List[string]  = List();
+    _sources       : Hashtable[int, LspIdeSource] = Hashtable();
+    mutable _nextFileIndex : int = 1;
+
+    public IsLoaded : bool { get { true } }
+
+    public this() { }
+
+    public AddAssemblyRef(path : string) : void
+    {
+      unless (_assemblyRefs.Contains(path))
+        _assemblyRefs.Add(path)
+    }
+
+    TryFindSource(uri : string) : option[LspIdeSource]
+    {
+      foreach (kv in _sources)
+        when (kv.Value.Uri == uri)
+          Some(kv.Value);
+      None()
+    }
+
+    public AddOrUpdateSource(uri : string, text : string, version : int) : int
+    {
+      match (TryFindSource(uri))
+      {
+        | Some(src) =>
+          src.Update(text, version);
+          src.FileIndex
+        | None =>
+          def idx = _nextFileIndex;
+          _nextFileIndex++;
+          _sources[idx] = LspIdeSource(idx, uri, text, version);
+          idx
+      }
+    }
+
+    public RemoveSource(uri : string) : void
+    {
+      match (TryFindSource(uri))
+      {
+        | Some(src) => _sources.Remove(src.FileIndex)
+        | None => ()
+      }
+    }
+
+    // IIdeProject implementation
+    public GetAssemblyReferences() : IEnumerable[string] { _assemblyRefs :> IEnumerable[string] }
+    public GetMacroAssemblyReferences() : IEnumerable[string] { List() :> IEnumerable[string] }
+
+    public GetOptions() : CompilationOptions
+    {
+      def opts = CompilationOptions();
+      opts.IgnoreConfusion = true;
+      opts.ProgressBar = false;
+      opts.ColorMessages = false;
+      opts.ThrowOnError = false;
+      opts.PersistentLibraries = false;
+      opts.DisableExternalParsers = true;
+      opts.DoNotLoadMacros = false;
+      opts.EmitDebug = false;
+      opts.CompileToMemory = true;
+      opts.EarlyExit = false;
+      opts
+    }
+
+    public GetSource(fileIndex : int) : IIdeSource
+    {
+      if (_sources.ContainsKey(fileIndex)) _sources[fileIndex] :> IIdeSource
+      else throw InvalidOperationException($"Source $fileIndex not found")
+    }
+
+    public GetSources() : IEnumerable[IIdeSource]
+    {
+      _sources.Values.Map(s => s :> IIdeSource) :> IEnumerable[IIdeSource]
+    }
+
+    // Display callbacks — handled via LSP, not here
+    public ClearAllCompilerMessages() : void { }
+    public SetCompilerMessageForCompileUnit(compileUnit : CompileUnit) : void { }
+    public SetMethodCompilerMessages(member : MemberBuilder, messages : IEnumerable[CompilerMessage]) : void { }
+    public ClearMethodCompilerMessages(member : MemberBuilder) : void { }
+    public SetStatusText(text : string) : void { }
+    public SetTopLevelCompilerMessages(messages : IEnumerable[CompilerMessage]) : void { }
+    public ShowMessage(message : string, messageType : MessageType) : void { }
+    public LookupLocationsFromDebugInformation(info : GotoInfo) : array[GotoInfo] { array[info] }
+    public SetUsageHighlighting(source : IIdeSource, usages : IEnumerable[GotoInfo]) : void { }
+    public FoundSymbols(callback : object, symbols : array[SymbolInfo]) : void { }
+    public AddUnimplementedMembers(source : IIdeSource, ty : TypeBuilder, unimplementedMembers : IEnumerable[IGrouping[FixedType.Class, IMember]]) : void { }
+    public AddOverrideMembers(source : IIdeSource, ty : TypeBuilder, notOverriden : IEnumerable[IMember]) : void { }
+    public TypesTreeCreated() : void { }
+  }
+}

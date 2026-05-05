@@ -8,12 +8,14 @@ public class ServerState
     private readonly object _lock = new();
     private EngineHost _engine;
     private readonly CompletionEngine _completionEngine;
+    private readonly AnalysisEngine _analysisEngine;
     private string? _rootPath;
 
     public ServerState()
     {
         _engine = new EngineHost();
         _completionEngine = new CompletionEngine();
+        _analysisEngine = new AnalysisEngine();
     }
 
     public void SetWorkspaceRoot(string? rootUri)
@@ -96,29 +98,54 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
+        var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         var lines = doc.Text.Split('\n');
         if (position.Line >= lines.Length)
             return Task.FromResult<Hover?>(null);
 
         var line = lines[position.Line];
 
-        // Get diagnostics for this position to show as hover
+        // Find definition of the word under cursor
+        var defs = word != null ? _analysisEngine.FindDefinitions(doc.Text, word) : new List<Location>();
+        var md = $"`{line.Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}";
+        if (word != null)
+            md += $"\n\n**Identifier:** `{word}`";
+        if (defs.Count > 0)
+        {
+            md += $"\n\n**Defined at line {defs[0].Range.Start.Line + 1}**";
+        }
+
+        // Show diagnostics on this line
         var diags = _engine.GetDiagnostics(doc.Uri, doc.Text);
         var lineDiags = diags.Where(d =>
-            d.Range.Start.Line == (int)position.Line
-            && d.Severity == DiagnosticSeverity.Error)
+            d.Range.Start.Line == (int)position.Line)
             .Select(d => $"- **{d.Severity}**: {d.Message}")
             .ToList();
-
-        var md = $"`{line.Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}";
         if (lineDiags.Count > 0)
-            md += "\n\n### Errors\n" + string.Join("\n", lineDiags);
+            md += "\n\n### Messages\n" + string.Join("\n", lineDiags);
 
         return Task.FromResult<Hover?>(new Hover(md));
     }
 
+    public Task<List<SymbolInfo>> GetDocumentSymbolsAsync(string uri)
+    {
+        var doc = GetDocument(uri);
+        if (doc == null) return Task.FromResult(new List<SymbolInfo>());
+
+        return Task.Run(() => _analysisEngine.GetDocumentSymbols(doc.Text));
+    }
+
     public Task<List<Location>> GetDefinitionAsync(string uri, Position position)
-        => Task.FromResult(new List<Location>());
+    {
+        var doc = GetDocument(uri);
+        if (doc == null) return Task.FromResult(new List<Location>());
+
+        var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
+        if (word == null) return Task.FromResult(new List<Location>());
+
+        var defs = _analysisEngine.FindDefinitions(doc.Text, word);
+        return Task.FromResult(defs);
+    }
 }
 
 internal record OpenDocument(string Uri, string Text, int Version);

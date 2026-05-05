@@ -62,6 +62,8 @@ public record Hover(string Contents, Range? Range = null);
 
 public record DefinitionParams(TextDocumentIdentifier TextDocument, Position Position);
 
+public record DocumentSymbolParams(TextDocumentIdentifier TextDocument);
+
 public record InitializeParams
 {
     public int? ProcessId { get; init; }

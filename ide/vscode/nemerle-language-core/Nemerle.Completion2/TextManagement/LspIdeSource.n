@@ -1,0 +1,93 @@
+using Nemerle.Compiler;
+using Nemerle.Collections;
+using Nemerle.Compiler.Parsetree;
+using Nemerle.Completion2;
+using Nemerle.Completion2.Engine;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Nemerle.Completion2
+{
+  /// IIdeSource backed by in-memory text from LSP editor.
+  public class LspIdeSource : IIdeSource
+  {
+    _uri       : string;
+    mutable _text     : string;
+    mutable _version  : int;
+    _fileIndex : int;
+
+    public Uri     : string { get { _uri } }
+    public Text    : string { get { _text } }
+
+    public HasView  : bool  { get { true } }
+    public FileIndex : int  { get { _fileIndex } }
+    public Version   : int  { get { _version } }
+
+    public CompileUnit : CompileUnit { get; set; }
+
+    public this(fileIndex : int, uri : string, text : string, version : int)
+    {
+      _fileIndex = fileIndex;
+      _uri = uri;
+      _text = text;
+      _version = version;
+    }
+
+    public Update(text : string, version : int) : void
+    {
+      _text = text;
+      _version = version;
+    }
+
+    public GetSourceSnapshot() : SourceSnapshot
+    {
+      Nemerle.Compiler.StringSourceSnapshot(_text)
+    }
+
+    public GetLine(line : int) : string
+    {
+      def lines = _text.Split(array['\n']);
+      if (line >= 0 && line < lines.Length) lines[line] else ""
+    }
+
+    public GetRegion(lineStart : int, colStart : int, lineEnd : int, colEnd : int) : string
+    {
+      def lines = _text.Split(array['\n']);
+      if (lineStart < 0 || lineStart >= lines.Length) ""
+      else
+      {
+        def line = lines[lineStart];
+        def start = Math.Min(colStart, line.Length);
+        def ending = if (lineStart == lineEnd) Math.Min(colEnd, line.Length) else line.Length;
+        if (start < ending) line.Substring(start, ending - start) else ""
+      }
+    }
+
+    public GetRegion(location : Location) : string
+    {
+      def lines = _text.Split(array['\n']);
+      def lc = location.Source.PositionToLineColumn(location.StartPos);
+      def ec = location.Source.PositionToLineColumn(location.EndPos);
+      def line = lc.Line - 1;
+      if (line < 0 || line >= lines.Length) ""
+      else
+      {
+        def start = lc.Column - 1;
+        def ending = ec.Column;
+        if (start < ending && start < lines[line].Length)
+          lines[line].Substring(start, Math.Min(ending, lines[line].Length) - start)
+        else ""
+      }
+    }
+
+    // IDE display callbacks — LSP handles these via separate channels
+    public SetTypeHighlighting(list : List[Location], sourceVersion : int) : void { }
+    public SetMethodsTypeHighlighting(bodyLocation : Location, typeLocations : List[Location], sourceVersion : int) : void { }
+    public SetRegions(regions : System.Collections.Generic.IList[RegionInfo], sourceVersion : int) : void { }
+    public SetTopDeclarations(topDeclarations : array[TopDeclaration]) : void { }
+
+    public Dispose() : void { _text = ""; }
+  }
+}

@@ -29,6 +29,7 @@ public class NemerleLanguageServer
         _handlers["textDocument/completion"] = HandleCompletionAsync;
         _handlers["textDocument/hover"] = HandleHoverAsync;
         _handlers["textDocument/definition"] = HandleDefinitionAsync;
+        _handlers["textDocument/documentSymbol"] = HandleDocumentSymbolAsync;
         _handlers["shutdown"] = HandleShutdownAsync;
         _handlers["exit"] = HandleExitAsync;
     }
@@ -185,6 +186,25 @@ public class NemerleLanguageServer
         var p = ((JsonElement)request.Params!).Deserialize<DefinitionParams>(_jsonOpts)!;
         var locations = await _state.GetDefinitionAsync(p.TextDocument.Uri, p.Position);
         await _transport.SendResponseAsync(request.Id, locations.ToArray(), ct);
+    }
+
+    private async Task HandleDocumentSymbolAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<DocumentSymbolParams>(_jsonOpts)!;
+        var symbols = await _state.GetDocumentSymbolsAsync(p.TextDocument.Uri);
+
+        // Convert SymbolInfo to LSP-friendly format
+        var result = symbols.Select(s => new
+        {
+            name = s.Name,
+            kind = (int)s.Kind,
+            range = new { start = new { line = s.Range.Start.Line, character = s.Range.Start.Character }, 
+                           end = new { line = s.Range.End.Line, character = s.Range.End.Character } },
+            selectionRange = new { start = new { line = s.SelectionRange.Start.Line, character = s.SelectionRange.Start.Character },
+                                    end = new { line = s.SelectionRange.End.Line, character = s.SelectionRange.End.Character } }
+        }).ToArray();
+
+        await _transport.SendResponseAsync(request.Id, result, ct);
     }
 
     private Task HandleShutdownAsync(LspRequest request, CancellationToken ct)
