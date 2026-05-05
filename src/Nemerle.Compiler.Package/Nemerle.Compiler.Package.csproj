@@ -38,7 +38,7 @@
 
     <!-- tools/net8.0 — ncc-core command-line compiler -->
     <Content Include="$(Stage3Dir)\ncc-core.dll"              PackagePath="tools\net8.0\" />
-    <Content Include="$(Stage3Dir)\ncc-core.exe"              PackagePath="tools\net8.0\" />
+    <Content Include="$(Stage3Dir)\ncc-core.dll"              PackagePath="tools\net8.0\" />
     <Content Include="$(Stage3Dir)\ncc-core.runtimeconfig.json" PackagePath="tools\net8.0\" />
   </ItemGroup>
 
