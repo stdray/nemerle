@@ -49,6 +49,16 @@ public static partial class HintMarkdownRenderer
     {
         if (string.IsNullOrWhiteSpace(wpfHintXml)) return "";
 
+        // Debug: log raw hint to file
+        try
+        {
+            var debugDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
+            Directory.CreateDirectory(debugDir);
+            File.AppendAllText(Path.Combine(debugDir, "hint-debug.log"),
+                $"=== Hint ({DateTime.Now:HH:mm:ss}) ===\n{wpfHintXml}\n\n");
+        }
+        catch { }
+
         var sb = new StringBuilder(wpfHintXml);
 
         // Replace block-level breaks with real newlines

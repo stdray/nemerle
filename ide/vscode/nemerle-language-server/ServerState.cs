@@ -155,17 +155,21 @@ public class ServerState
             if (_engineBridge?.Ready == true)
             {
                 var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
-                if (!string.IsNullOrEmpty(hintText))
+                if (!string.IsNullOrEmpty(hintText) && hintText != "error")
                 {
                     var mkd = HintMarkdownRenderer.ToMarkdown(hintText);
-                    if (!string.IsNullOrWhiteSpace(mkd))
-                        return Task.FromResult<Hover?>(new Hover(mkd));
+                    if (!string.IsNullOrWhiteSpace(mkd) && !mkd.StartsWith("error"))
+                    {
+                        // Engine hover with full type info
+                        var engineMd = mkd + $"\n\n*Line {position.Line + 1}, Col {position.Character + 1}*";
+                        return Task.FromResult<Hover?>(new Hover(engineMd));
+                    }
                 }
             }
         }
         catch { }
 
-        // Fallback: lexical hover
+        // Fallback: lexical with definition info
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         var lines = doc.Text.Split('\n');
         if (position.Line >= lines.Length)
@@ -173,16 +177,30 @@ public class ServerState
 
         var line = lines[position.Line];
         var defs = word != null ? _analysisEngine.FindDefinitions(doc.Text, word, uri) : new List<Location>();
-        var md = $"`{line.Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}";
-        if (word != null) md += $"\n\n**Identifier:** `{word}`";
-        if (defs.Count > 0) md += $"\n\n**Defined at line {defs[0].Range.Start.Line + 1}**";
+
+        var md = new System.Text.StringBuilder();
+        md.AppendLine($"`{line.Trim()}`");
+        md.AppendLine();
+        if (word != null)
+        {
+            if (defs.Count > 0)
+                md.AppendLine($"**`{word}`** defined at line {defs[0].Range.Start.Line + 1}");
+            else
+                md.AppendLine($"Identifier: `{word}` (no definition found in this file)");
+        }
+        md.AppendLine($"*Line {position.Line + 1}:{position.Character + 1}*");
 
         var diags = _engine.GetDiagnostics(doc.Uri, doc.Text);
         var lineDiags = diags.Where(d => d.Range.Start.Line == (int)position.Line)
             .Select(d => $"- **{d.Severity}**: {d.Message}").ToList();
-        if (lineDiags.Count > 0) md += "\n\n### Messages\n" + string.Join("\n", lineDiags);
+        if (lineDiags.Count > 0)
+        {
+            md.AppendLine();
+            md.AppendLine("### Messages");
+            foreach (var d in lineDiags) md.AppendLine(d);
+        }
 
-        return Task.FromResult<Hover?>(new Hover(md));
+        return Task.FromResult<Hover?>(new Hover(md.ToString()));
     }
 
     public Task<List<SymbolInfo>> GetDocumentSymbolsAsync(string uri)
