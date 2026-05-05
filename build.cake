@@ -328,17 +328,16 @@ Task("Validate")
             allOk = false;
             continue;
         }
-        // Disassemble both
+        // Disassemble both using dotnet tool run (ildasm from manifest)
         var il1 = $"{tmpDir}/{dll}.s1.il";
         var il2 = $"{tmpDir}/{dll}.s2.il";
-        var ildasmSettings = new ProcessSettings {
-            Arguments = $@"""{s1}"" -o ""{il1}""",
-            EnvironmentVariables = new Dictionary<string, string> {
-                { "DOTNET_ROLL_FORWARD", "LatestMajor" } }
-        };
-        StartProcess("dotnet-ildasm", ildasmSettings);
-        ildasmSettings.Arguments = $@"""{s2}"" -o ""{il2}""";
-        StartProcess("dotnet-ildasm", ildasmSettings);
+        var ildasmEnv = new Dictionary<string, string> { { "DOTNET_ROLL_FORWARD", "LatestMajor" } };
+        StartProcess("dotnet", new ProcessSettings {
+            Arguments = $"tool run dotnet-ildasm -- \"{s1}\" -o \"{il1}\"",
+            EnvironmentVariables = ildasmEnv });
+        StartProcess("dotnet", new ProcessSettings {
+            Arguments = $"tool run dotnet-ildasm -- \"{s2}\" -o \"{il2}\"",
+            EnvironmentVariables = ildasmEnv });
         // Normalize IL — replicate old pipeline (Makefile + il-diff.pl)
         string NormalizeIL(string path) {
             var result = new System.Text.StringBuilder();

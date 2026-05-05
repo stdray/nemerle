@@ -30,7 +30,6 @@ jobs:
       - name: Restore tools + Cake CI
         run: |
           dotnet tool restore
-          dotnet tool install -g dotnet-ildasm
           dotnet cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
 
       - name: Show test summary
@@ -80,7 +79,6 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet tool restore
-          dotnet tool install -g dotnet-ildasm
           dotnet cake build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ci-nuget.txt
 
       - name: Upload NuGet artifacts
