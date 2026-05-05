@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer.ProjectSystem;
 using Nemerle.Completion2;
 
@@ -7,6 +8,7 @@ public class ServerState
 {
     private readonly Dictionary<string, OpenDocument> _documents = new();
     private readonly object _lock = new();
+    private readonly ILogger<ServerState> _logger;
     private EngineHost _engine;
     private readonly CompletionEngine _completionEngine;
     private readonly AnalysisEngine _analysisEngine;
@@ -14,8 +16,9 @@ public class ServerState
     private LspIdeProject? _ideProject;
     private string? _rootPath;
 
-    public ServerState()
+    public ServerState(ILogger<ServerState> logger)
     {
+        _logger = logger;
         _engine = new EngineHost();
         _completionEngine = new CompletionEngine();
         _analysisEngine = new AnalysisEngine();
@@ -39,9 +42,11 @@ public class ServerState
             try
             {
                 _rootPath = Uri.UnescapeDataString(new Uri(rootUri).LocalPath);
+                _logger.LogInformation("Workspace root: {RootPath}", _rootPath);
                 if (Directory.Exists(_rootPath))
                 {
                     var nprojFiles = Directory.GetFiles(_rootPath, "*.nproj", SearchOption.AllDirectories);
+                    _logger.LogInformation("Found {Count} .nproj files", nprojFiles.Length);
                     if (nprojFiles.Length > 0)
                     {
                         foreach (var nproj in nprojFiles)
@@ -50,18 +55,18 @@ public class ServerState
                             {
                                 var info = NprojLoader.Load(nproj);
                                 refs.AddRange(NprojLoader.ResolveReferences(info));
+                                _logger.LogInformation("Loaded .nproj: {Path}", nproj);
                             }
-                            catch { }
+                            catch (Exception ex) { _logger.LogWarning(ex, "Failed to load .nproj: {Path}", nproj); }
                         }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { _logger.LogError(ex, "SetWorkspaceRoot failed"); }
         }
 
         _engine = new EngineHost(refs);
 
-        // Always init engine bridge (even without .nproj — finds Nemerle types from AppDomain)
         if (_engineBridge == null)
         {
             try
@@ -72,8 +77,13 @@ public class ServerState
                         _ideProject.AddAssemblyRef(r);
                 _engineBridge = new Nemerle.Completion2.EngineBridge();
                 _engineBridge.Initialize(_ideProject);
+                _logger.LogInformation("EngineBridge initialized successfully");
             }
-            catch { _engineBridge = null; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "EngineBridge initialization FAILED");
+                _engineBridge = null;
+            }
         }
     }
 
@@ -84,7 +94,7 @@ public class ServerState
 
         EnsureEngineBridge();
         try { _engineBridge?.AddOrUpdateDocument(uri, text, version); }
-        catch { _engineBridge = null; }
+        catch (Exception ex) { _logger.LogWarning(ex, "AddOrUpdateDocument failed for {Uri}", uri); }
     }
 
     public void UpdateDocument(string uri, string text, int version)
@@ -95,7 +105,7 @@ public class ServerState
                 _documents[uri] = doc with { Text = text, Version = version };
         }
         try { _engineBridge?.AddOrUpdateDocument(uri, text, version); }
-        catch { _engineBridge = null; }
+        catch (Exception ex) { _logger.LogWarning(ex, "UpdateDocument failed for {Uri}", uri); }
     }
 
     public void RemoveDocument(string uri)
@@ -103,7 +113,7 @@ public class ServerState
         lock (_lock)
             _documents.Remove(uri);
         try { _engineBridge?.RemoveDocument(uri); }
-        catch { }
+        catch (Exception ex) { _logger.LogWarning(ex, "RemoveDocument failed for {Uri}", uri); }
     }
 
     private OpenDocument? GetDocument(string uri)
@@ -114,11 +124,18 @@ public class ServerState
 
     public OpenDocument? GetDocumentByUri(string uri) => GetDocument(uri);
 
+    public string? GetHoverRaw(string uri, Position position)
+    {
+        var doc = GetDocument(uri);
+        if (doc == null || _engineBridge?.Ready != true) return null;
+        try { return _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character); }
+        catch { return null; }
+    }
+
     public Task<List<Diagnostic>> GetDiagnosticsAsync(string uri)
     {
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<Diagnostic>());
-
         return Task.Run(() => _engine.GetDiagnostics(doc.Uri, doc.Text));
     }
 
@@ -127,7 +144,6 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<CompletionItem>());
 
-        // Try engine bridge first, fall back to lexical
         return Task.Run(() =>
         {
             try
@@ -139,7 +155,7 @@ public class ServerState
                         return MapCompletionElems(elems);
                 }
             }
-            catch { }
+            catch (Exception ex) { _logger.LogWarning(ex, "Engine completion failed"); }
 
             return _completionEngine.GetCompletions(doc.Text, position);
         });
@@ -147,43 +163,37 @@ public class ServerState
 
     public Task<Hover?> GetHoverAsync(string uri, Position position)
     {
-        // UNCONDITIONAL log — is this method ever called?
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-entry.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} GetHoverAsync uri={uri} line={position.Line} col={position.Character}\n");
+        _logger.LogDebug("Hover requested: {Uri} ({Line},{Col})", uri, position.Line, position.Character);
 
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
-        // Try engine hover (real type info + xml-doc)
+        // Try engine hover
         try
         {
             if (_engineBridge?.Ready == true)
             {
                 var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
-                // Log to file
-                System.IO.File.AppendAllText(
-                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-debug.log"),
-                    $"{DateTime.Now:HH:mm:ss} HOVER engine: ready={_engineBridge?.Ready} hint='{hintText?.Substring(0, Math.Min(80, hintText?.Length ?? 0))}'\n");
+                _logger.LogDebug("Engine hint: ready={Ready} text='{Text}'", _engineBridge.Ready,
+                    hintText?.Length > 80 ? hintText[..80] : hintText ?? "null");
+
                 if (!string.IsNullOrEmpty(hintText) && !hintText.StartsWith("error"))
                 {
                     var mkd = HintMarkdownRenderer.ToMarkdown(hintText);
-                    if (!string.IsNullOrWhiteSpace(mkd) && !mkd.StartsWith("error"))
+                    if (!string.IsNullOrWhiteSpace(mkd))
                     {
-                        // Engine hover with full type info
                         var engineMd = mkd + $"\n\n*Line {position.Line + 1}, Col {position.Character + 1}*";
                         return Task.FromResult<Hover?>(new Hover(engineMd));
                     }
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { _logger.LogWarning(ex, "Engine hover failed"); }
 
-        // Fallback: lexical with definition info
+        // Fallback: lexical
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         var lines = doc.Text.Split('\n');
-        if (position.Line >= lines.Length)
-            return Task.FromResult<Hover?>(null);
+        if (position.Line >= lines.Length) return Task.FromResult<Hover?>(null);
 
         var line = lines[position.Line];
         var defs = word != null ? _analysisEngine.FindDefinitions(doc.Text, word, uri) : new List<Location>();
@@ -217,7 +227,6 @@ public class ServerState
     {
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<SymbolInfo>());
-
         return Task.Run(() => _analysisEngine.GetDocumentSymbols(doc.Text));
     }
 
@@ -226,7 +235,6 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<Location>());
 
-        // Try engine (real GotoInfo) first
         try
         {
             if (_engineBridge?.Ready == true)
@@ -242,26 +250,63 @@ public class ServerState
                         if (string.IsNullOrEmpty(fileUri) && !string.IsNullOrEmpty(g.FilePath))
                             fileUri = "file:///" + g.FilePath.Replace('\\', '/');
                         if (string.IsNullOrEmpty(fileUri)) fileUri = uri;
-
-                        results.Add(new Location(
-                            fileUri,
-                            new Range(
-                                new Position(Math.Max(0, g.Line - 1), Math.Max(0, g.Column - 1)),
-                                new Position(Math.Max(0, g.EndLine - 1), Math.Max(0, g.EndColumn)))));
+                        results.Add(new Location(fileUri, new Range(
+                            new Position(Math.Max(0, g.Line - 1), Math.Max(0, g.Column - 1)),
+                            new Position(Math.Max(0, g.EndLine - 1), Math.Max(0, g.EndColumn)))));
                     }
                     return Task.FromResult(results);
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { _logger.LogWarning(ex, "Engine definition failed"); }
 
-        // Fallback: lexical search
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         if (word == null) return Task.FromResult(new List<Location>());
-
-        var defs = _analysisEngine.FindDefinitions(doc.Text, word, uri);
-        return Task.FromResult(defs);
+        return Task.FromResult(_analysisEngine.FindDefinitions(doc.Text, word, uri));
     }
+
+    public Task<object?> GetSignatureHelpAsync(string uri, Position position)
+    {
+        try
+        {
+            if (_engineBridge?.Ready == true)
+            {
+                var tip = _engineBridge.GetMethodTip(uri, (int)position.Line, (int)position.Character);
+                if (tip != null && tip.HasTip)
+                {
+                    var sigs = new List<object>();
+                    var count = tip.GetCount();
+                    for (int i = 0; i < count; i++)
+                    {
+                        var parms = new List<object>();
+                        var paramCount = tip.GetParameterCount(i);
+                        for (int p = 0; p < paramCount; p++)
+                            parms.Add(new { label = $"param{p + 1}", documentation = (string?)null });
+                        sigs.Add(new
+                        {
+                            label = $"{tip.GetName(i)}({tip.GetDescription(i) ?? tip.GetType(i)})",
+                            documentation = tip.GetDescription(i) ?? tip.GetType(i),
+                            parameters = parms.ToArray()
+                        });
+                    }
+                    return Task.FromResult<object?>(new
+                    {
+                        signatures = sigs.ToArray(),
+                        activeSignature = tip.DefaultMethod,
+                        activeParameter = tip.ParameterIndex
+                    });
+                }
+            }
+        }
+        catch { }
+        return Task.FromResult<object?>(null);
+    }
+
+    public Task<List<Location>> GetReferencesAsync(string uri, Position position)
+        => Task.FromResult(new List<Location>());
+
+    public Task<List<int>> GetSemanticTokensAsync(string uri)
+        => Task.FromResult(new List<int>());
 
     private static List<CompletionItem> MapCompletionElems(Nemerle.Completion2.CompletionElem[] elems)
     {
@@ -296,66 +341,7 @@ public class ServerState
             _ => CompletionItemKind.Text
         };
     }
-
-    public string? GetHoverRaw(string uri, Position position)
-    {
-        var doc = GetDocument(uri);
-        if (doc == null || _engineBridge?.Ready != true) return null;
-        try { return _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character); }
-        catch { return null; }
-    }
-
-    public Task<object?> GetSignatureHelpAsync(string uri, Position position)
-    {
-        try
-        {
-            if (_engineBridge?.Ready == true)
-            {
-                var tip = _engineBridge.GetMethodTip(uri, (int)position.Line, (int)position.Character);
-                if (tip != null && tip.HasTip)
-                {
-                    var sigs = new List<object>();
-                    var count = tip.GetCount();
-                    for (int i = 0; i < count; i++)
-                    {
-                        var parms = new List<object>();
-                        var paramCount = tip.GetParameterCount(i);
-                        for (int p = 0; p < paramCount; p++)
-                        {
-                            parms.Add(new { label = $"param{p + 1}", documentation = (string?)null });
-                        }
-                        sigs.Add(new
-                        {
-                            label = $"{tip.GetName(i)}({tip.GetDescription(i) ?? tip.GetType(i)})",
-                            documentation = tip.GetDescription(i) ?? tip.GetType(i),
-                            parameters = parms.ToArray()
-                        });
-                    }
-                    return Task.FromResult<object?>(new
-                    {
-                        signatures = sigs.ToArray(),
-                        activeSignature = tip.DefaultMethod,
-                        activeParameter = tip.ParameterIndex
-                    });
-                }
-            }
-        }
-        catch { }
-        return Task.FromResult<object?>(null);
-    }
-
-    public Task<List<Location>> GetReferencesAsync(string uri, Position position)
-    {
-        // Stub — needs Engine.FindAllSymbols() with full workspace
-        return Task.FromResult(new List<Location>());
-    }
-
-    public Task<List<int>> GetSemanticTokensAsync(string uri)
-    {
-        // Stub — needs SyntaxClassifier/TypeClassifier/UsageClassifier from VS integration
-        // Token format: [line, startChar, length, tokenType, tokenModifiers]
-        return Task.FromResult(new List<int>());
-    }
 }
 
 public record OpenDocument(string Uri, string Text, int Version);
+

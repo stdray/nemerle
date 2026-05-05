@@ -1,19 +1,21 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Nemerle.LanguageServer;
 
 public class NemerleLanguageServer
 {
     private readonly LspTransport _transport;
-    private readonly Serilog.ILogger _logger;
+    private readonly ILogger _logger;
     private readonly ServerState _state;
     private readonly Dictionary<string, Func<LspRequest, CancellationToken, Task>> _handlers = new();
 
-    public NemerleLanguageServer(LspTransport transport, Serilog.ILogger logger)
+    public NemerleLanguageServer(LspTransport transport, Serilog.ILogger serilogLogger)
     {
         _transport = transport;
-        _logger = logger;
-        _state = new ServerState();
+        var factory = new SerilogLoggerFactory(serilogLogger);
+        _logger = factory.CreateLogger("NemerleLanguageServer");
+        _state = new ServerState(factory.CreateLogger<ServerState>());
 
         RegisterHandlers();
     }
@@ -42,7 +44,7 @@ public class NemerleLanguageServer
 
     public async Task RunAsync(CancellationToken ct = default)
     {
-        _logger.Information("Server ready, waiting for requests");
+        _logger.LogInformation("Server ready, waiting for requests");
 
         var pendingTasks = new List<Task>();
 
@@ -60,7 +62,7 @@ public class NemerleLanguageServer
             }
             catch (EndOfStreamException)
             {
-                _logger.Information("Client disconnected");
+                _logger.LogInformation("Client disconnected");
                 break;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -69,7 +71,7 @@ public class NemerleLanguageServer
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error reading request");
+                _logger.LogError(ex, "Error reading request");
             }
         }
 
@@ -82,7 +84,7 @@ public class NemerleLanguageServer
             }
             catch (TimeoutException)
             {
-                _logger.Warning("Some handlers did not complete within timeout");
+                _logger.LogWarning("Some handlers did not complete within timeout");
             }
         }
     }
@@ -97,13 +99,13 @@ public class NemerleLanguageServer
             }
             else
             {
-                _logger.Warning("Unknown method: {Method}", request.Method);
+                _logger.LogWarning("Unknown method: {Method}", request.Method);
                 await _transport.SendResponseAsync(request.Id, new { }, ct);
             }
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error handling {Method}", request.Method);
+            _logger.LogError(ex, "Error handling {Method}", request.Method);
             try
             {
                 await _transport.SendResponseAsync(request.Id, new { error = new { code = -1, message = ex.Message } }, ct);
@@ -115,7 +117,7 @@ public class NemerleLanguageServer
     private async Task HandleInitializeAsync(LspRequest request, CancellationToken ct)
     {
         var initParams = ((JsonElement)request.Params!).Deserialize<InitializeParams>(_jsonOpts)!;
-        _logger.Information("Initialize: rootUri={RootUri}, rootPath={RootPath}, params={Params}",
+        _logger.LogInformation("Initialize: rootUri={RootUri}, rootPath={RootPath}, params={Params}",
             initParams.RootUri, initParams.RootPath, request.Params!.ToString());
 
         var result = new InitializeResult
@@ -133,20 +135,20 @@ public class NemerleLanguageServer
         };
 
         await _transport.SendResponseAsync(request.Id, result, ct);
-        _logger.Information("Initialized for root: {RootPath}", initParams.RootPath);
+        _logger.LogInformation("Initialized for root: {RootPath}", initParams.RootPath);
         _state.SetWorkspaceRoot(initParams.RootUri ?? initParams.RootPath);
     }
 
     private Task HandleInitializedAsync(LspRequest request, CancellationToken ct)
     {
-        _logger.Information("Client initialized");
+        _logger.LogInformation("Client initialized");
         return Task.CompletedTask;
     }
 
     private async Task HandleDidOpenAsync(LspRequest request, CancellationToken ct)
     {
         var p = ((JsonElement)request.Params!).Deserialize<DidOpenTextDocumentParams>(_jsonOpts)!;
-        _logger.Information("didOpen {Uri} version={Version}", p.TextDocument.Uri, p.TextDocument.Version);
+        _logger.LogInformation("didOpen {Uri} version={Version}", p.TextDocument.Uri, p.TextDocument.Version);
         _state.AddDocument(p.TextDocument.Uri, p.TextDocument.Text, p.TextDocument.Version);
         await PublishDiagnosticsAsync(p.TextDocument.Uri, ct);
     }
@@ -401,13 +403,13 @@ public class NemerleLanguageServer
 
     private Task HandleShutdownAsync(LspRequest request, CancellationToken ct)
     {
-        _logger.Information("Shutdown requested");
+        _logger.LogInformation("Shutdown requested");
         return _transport.SendResponseAsync(request.Id, null, ct);
     }
 
     private Task HandleExitAsync(LspRequest request, CancellationToken ct)
     {
-        _logger.Information("Exit requested");
+        _logger.LogInformation("Exit requested");
         return Task.CompletedTask;
     }
 
@@ -424,3 +426,46 @@ public class NemerleLanguageServer
         PropertyNameCaseInsensitive = true
     };
 }
+
+/// <summary>
+/// Bridges Serilog to Microsoft.Extensions.Logging.ILogger.
+/// </summary>
+public class SerilogLoggerFactory : ILoggerFactory
+{
+    private readonly Serilog.ILogger _serilog;
+
+    public SerilogLoggerFactory(Serilog.ILogger serilog) { _serilog = serilog; }
+
+    public void AddProvider(ILoggerProvider provider) { }
+    public Microsoft.Extensions.Logging.ILogger CreateLogger(string categoryName)
+        => new SerilogLogger(_serilog.ForContext("SourceContext", categoryName));
+
+    public void Dispose() { }
+}
+
+public class SerilogLogger : Microsoft.Extensions.Logging.ILogger
+{
+    private readonly Serilog.ILogger _logger;
+    public SerilogLogger(Serilog.ILogger logger) { _logger = logger; }
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        var level = logLevel switch
+        {
+            LogLevel.Trace => Serilog.Events.LogEventLevel.Verbose,
+            LogLevel.Debug => Serilog.Events.LogEventLevel.Debug,
+            LogLevel.Information => Serilog.Events.LogEventLevel.Information,
+            LogLevel.Warning => Serilog.Events.LogEventLevel.Warning,
+            LogLevel.Error => Serilog.Events.LogEventLevel.Error,
+            LogLevel.Critical => Serilog.Events.LogEventLevel.Fatal,
+            _ => Serilog.Events.LogEventLevel.Information
+        };
+        _logger.Write(level, exception, formatter(state, exception));
+    }
+}
+
