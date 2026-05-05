@@ -179,6 +179,36 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult(new List<Location>());
 
+        // Try engine (real GotoInfo) first
+        try
+        {
+            if (_engineBridge?.Ready == true)
+            {
+                var gotos = _engineBridge.GetDefinitions(uri, (int)position.Line, (int)position.Character);
+                if (gotos != null && gotos.Length > 0)
+                {
+                    var results = new List<Location>();
+                    foreach (var g in gotos)
+                    {
+                        if (g == null) continue;
+                        var fileUri = _engineBridge.GetFileUri(g.FileIndex);
+                        if (string.IsNullOrEmpty(fileUri) && !string.IsNullOrEmpty(g.FilePath))
+                            fileUri = "file:///" + g.FilePath.Replace('\\', '/');
+                        if (string.IsNullOrEmpty(fileUri)) fileUri = uri;
+
+                        results.Add(new Location(
+                            fileUri,
+                            new Range(
+                                new Position(Math.Max(0, g.Line - 1), Math.Max(0, g.Column - 1)),
+                                new Position(Math.Max(0, g.EndLine - 1), Math.Max(0, g.EndColumn)))));
+                    }
+                    return Task.FromResult(results);
+                }
+            }
+        }
+        catch { }
+
+        // Fallback: lexical search
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         if (word == null) return Task.FromResult(new List<Location>());
 

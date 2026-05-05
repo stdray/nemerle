@@ -70,6 +70,42 @@ namespace Nemerle.Completion2
       catch { _ => array(0) }
     }
 
+    public GetDefinitions(uri : string, line : int, col : int) : array[GotoInfo]
+    {
+      unless (_ready) array(0);
+
+      def src = FindSource(uri);
+      when (src == null) array(0);
+
+      def snap = src.GetSourceSnapshot();
+      def lc = LineColumn(line + 1, col + 1);
+      def pos = snap.LineColumnToPosition(lc);
+      def location = Location(snap, pos);
+
+      try
+      {
+        _engine.GetGotoInfo(src, location, GotoKind.Definition)
+      }
+      catch { _ => array(0) }
+    }
+
+    public GetFileUri(fileIndex : int) : string
+    {
+      if (_ready)
+      {
+        try
+        {
+          def src = _project.GetSource(fileIndex);
+          if (src : object is LspIdeSource)
+            (src :> LspIdeSource).Uri
+          else
+            ""
+        }
+        catch { _ => "" }
+      }
+      else ""
+    }
+
     public Shutdown() : void
     {
       when (_ready)
