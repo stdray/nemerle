@@ -1,0 +1,57 @@
+using System;
+
+namespace VscodeTestLib
+{
+  /// <summary>Represents a geometric shape.</summary>
+  public variant Shape
+  {
+    /// <summary>A circle with given radius.</summary>
+    | Circle { radius : double; }
+    /// <summary>A rectangle with width and height.</summary>
+    | Rectangle { width : double; height : double; }
+    /// <summary>A triangle with sides a, b, c.</summary>
+    | Triangle { a : double; b : double; c : double; }
+  }
+
+  /// <summary>Provides utility methods for calculations.</summary>
+  public module Calculator
+  {
+    /// <summary>Adds two integers and returns the result.</summary>
+    /// <param name="a">First operand.</param>
+    /// <param name="b">Second operand.</param>
+    /// <returns>The sum of a and b.</returns>
+    public Add(a : int, b : int) : int { a + b }
+
+    /// <summary>Computes the area of a shape.</summary>
+    /// <param name="shape">The shape to measure.</param>
+    /// <returns>Area in square units.</returns>
+    public Area(shape : Shape) : double
+    {
+      match (shape)
+      {
+        | Circle(radius=r) => System.Math.PI * r * r
+        | Rectangle(w, h) => w * h
+        | Triangle(a, b, c) =>
+          def s = (a + b + c) / 2.0;
+          System.Math.Sqrt(s * (s - a) * (s - b) * (s - c))
+      }
+    }
+  }
+
+  /// <summary>Represents a person with name and age.</summary>
+  [Record]
+  public class Person
+  {
+    /// <summary>Full name of the person.</summary>
+    public Name : string;
+    /// <summary>Age in years.</summary>
+    public Age  : int;
+  }
+
+  /// <summary>Interface for entities that can be serialized.</summary>
+  public interface ISerializable
+  {
+    /// <summary>Serializes the object to a string.</summary>
+    Serialize() : string;
+  }
+}

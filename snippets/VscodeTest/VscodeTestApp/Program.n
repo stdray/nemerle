@@ -1,0 +1,51 @@
+using VscodeTestLib;
+using VscodeTestMacro;
+
+/// <summary>Application entry point.</summary>
+module Program
+{
+  /// <summary>Takes greeter name and runs the demo.</summary>
+  [LogCompile("Compiling Program.Run")]
+  public Run() : void
+  {
+    // Use the Calculator utility
+    def sum = Calculator.Add(40, 2);
+    System.Console.WriteLine($"40 + 2 = $sum");
+
+    // Use the Shape variant
+    def circle = Shape.Circle(5.0);
+    def area = Calculator.Area(circle);
+    System.Console.WriteLine($"Circle area: $area");
+
+    // Use the Person record
+    def person = Person("Alice", 30);
+    System.Console.WriteLine($"Person: $(person.Name), age $(person.Age)");
+
+    // Use the macro-annotated class
+    def demo = GreetingDemo();
+    System.Console.WriteLine(demo.Greet());
+  }
+}
+
+/// <summary>Demo class using the Greet macro.</summary>
+[Greet("Hello")]
+public class GreetingDemo
+{
+  /// <summary>A simple property.</summary>
+  public Message : string { get { "Hello from GreetingDemo!" } }
+}
+
+/// <summary>A class using multiple LogCompile macros.</summary>
+[LogCompile("Compiling MultiLog")]
+[LogCompile("MultiLog registered")]
+public class MultiLog
+{
+  /// <summary>Returns a constant string.</summary>
+  public GetValue() : string { "multi-log-value" }
+}
+
+/// <summary>Main entry point called by the runtime.</summary>
+Main() : void
+{
+  Program.Run()
+}

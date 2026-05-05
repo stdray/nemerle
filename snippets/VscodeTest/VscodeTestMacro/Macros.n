@@ -1,0 +1,33 @@
+using Nemerle.Compiler;
+using Nemerle.Compiler.Parsetree;
+
+namespace VscodeTestMacro
+{
+  /// <summary>
+  /// Adds a Greet() method that returns a greeting string.
+  /// Usage: [Greet("Hello")]
+  /// </summary>
+  [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
+    Inherited = true, AllowMultiple = false)]
+  macro Greet(name : string)
+  {
+    def builder = Nemerle.Macros.ImplicitCTX();
+    def greeting = name;
+    def body = <[ $"$greeting from $(this.GetType())!" ]>;
+    def method = <[ decl:
+      public Greet() : string { $body }
+    ]>;
+    builder.Define(method);
+  }
+
+  /// <summary>
+  /// Logs a message at compile time.
+  /// Usage: [LogCompile("Processing type")]
+  /// </summary>
+  [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
+    Inherited = true, AllowMultiple = true)]
+  macro LogCompile(message : string)
+  {
+    Nemerle.IO.printf("Compile-time: %s\n", message);
+  }
+}

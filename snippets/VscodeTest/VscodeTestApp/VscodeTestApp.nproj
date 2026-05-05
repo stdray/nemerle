@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>VscodeTestApp</AssemblyName>
+    <NoStdLib>true</NoStdLib>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
+  <ItemGroup>
+    <Compile Include="*.n" />
+    <ProjectReference Include="..\VscodeTestLib\VscodeTestLib.nproj">
+      <Name>VscodeTestLib</Name>
+    </ProjectReference>
+    <MacroProjectReference Include="..\VscodeTestMacro\VscodeTestMacro.nproj">
+      <Name>VscodeTestMacro</Name>
+    </MacroProjectReference>
+  </ItemGroup>
+  <Import Project="$(Nemerle)\Nemerle.Sdk.targets" />
+</Project>

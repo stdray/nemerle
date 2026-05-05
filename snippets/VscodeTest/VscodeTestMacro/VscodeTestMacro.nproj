@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot-dnlib</Nemerle>
+    <OutputType>Library</OutputType>
+    <AssemblyName>VscodeTestMacro</AssemblyName>
+    <NoStdLib>true</NoStdLib>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
+  <ItemGroup><Compile Include="*.n" /></ItemGroup>
+  <Import Project="$(Nemerle)\Nemerle.Sdk.targets" />
+</Project>
