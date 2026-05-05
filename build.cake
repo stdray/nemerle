@@ -1,5 +1,7 @@
 #tool dotnet:?package=GitVersion.Tool&version=6.4.0
 
+#tool dotnet:?package=GitVersion.Tool&version=6.4.0
+
 //////////////////////////////////////////////////////////////////////
 // ARGUMENTS
 //////////////////////////////////////////////////////////////////////
@@ -36,6 +38,8 @@ var AllCompilerProjects = new[] {
 
 GitVersion gitVersion = null;
 
+//////////////////////////////////////////////////////////////////////
+// HELPERS
 //////////////////////////////////////////////////////////////////////
 // HELPERS
 //////////////////////////////////////////////////////////////////////
@@ -96,6 +100,10 @@ Task("Version")
         OutputType = GitVersionOutput.Json,
         NoFetch = true
     });
+    Information("GitVersion FullSemVer: {0}", gitVersion.FullSemVer);
+    Information("GitVersion ShortSha:   {0}", gitVersion.ShortSha);
+    Information("GitVersion CommitDate: {0}", gitVersion.CommitDate);
+});
     Information("GitVersion FullSemVer: {0}", gitVersion.FullSemVer);
     Information("GitVersion ShortSha:   {0}", gitVersion.ShortSha);
     Information("GitVersion CommitDate: {0}", gitVersion.CommitDate);
@@ -257,8 +265,8 @@ Task("PackNemerle")
 
     var ms = new DotNetMSBuildSettings()
         .SetConfiguration(configuration)
-        .WithProperty("Version", buildVersion)
-        .WithProperty("InformationalVersion", $"{buildVersion} ({gitVersion.ShortSha}, {gitVersion.CommitDate})")
+        .WithProperty("Version", gitVersion.FullSemVer)
+        .WithProperty("InformationalVersion", $"{gitVersion.FullSemVer} ({gitVersion.ShortSha}, {gitVersion.CommitDate})")
         .WithProperty("Stage3Dir", absStage3 + "/")
         .WithProperty("RepoRoot", absRepo + "/")
         .WithProperty("MSBuildTaskOutput", absTasks + "/");
