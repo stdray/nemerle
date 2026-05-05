@@ -474,11 +474,13 @@ Task("Test")
         "-reference dnlib");
     var posGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/positive/*.n" : testFilter;
     var negGlob = string.IsNullOrEmpty(testFilter) ? "testsuite/negative/*.n" : testFilter;
+    var shell = IsRunningOnWindows() ? "cmd" : "bash";
+    var shellArg = IsRunningOnWindows() ? "/C" : "-c";
     tasks[0] = System.Threading.Tasks.Task.Run(() => {
-        posExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""{posGlob}"" > {posLog} 2>&1");
+        posExit = StartProcess(shell, $@"{shellArg} dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{posOut} {refs} -p ""-nowarn:10003"" ""{posGlob}"" > {posLog} 2>&1");
     });
     tasks[1] = System.Threading.Tasks.Task.Run(() => {
-        negExit = StartProcess("cmd", $@"/C dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{negOut} {refs} -p ""-nowarn:10003"" ""{negGlob}"" > {negLog} 2>&1");
+        negExit = StartProcess(shell, $@"{shellArg} dotnet ""{testOut}/Nemerle.Compiler.Test.dll"" -r dotnet -output:{negOut} {refs} -p ""-nowarn:10003"" ""{negGlob}"" > {negLog} 2>&1");
     });
     System.Threading.Tasks.Task.WaitAll(tasks);
     Information($"  Test logs: {posLog}, {negLog}");
