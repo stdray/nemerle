@@ -1,2 +1,77 @@
-# Cake tool run directory (avoid multi-project bug in .NET 10)
+# Standard .NET / VSCode / Cake ignores
+
+## Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.vspscc
+.vs/
+.vscode/
+
+## Cake
+tools/.store/
+tools/dotnet-*.exe
+
+## NuGet
+*.nupkg
+*.snupkg
+artifacts/
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+## Nemerle-specific
+AGENTS.md
+doc/*.md
+.opencode/
+boot/netcore21-backup/      # boot backup
+dotnet-tools.json
+!.config/dotnet-tools.json   # local tool manifest IS committed
 _cake/
+validate_tmp/
+build_output.txt
+test_output*.txt
+test-results.txt
+abstract.xml
+macro-xmldocs.xml
+_*.cake
+_*.log
+_*.txt
+
+## Test outputs
+tests/positive/*.exe
+tests/positive/*.dll
+tests/positive/*.pdb
+tests/positive/*.xml
+tests/positive/*.runtimeconfig.json
+tests/negative/*.exe
+tests/negative/*.dll
+tests/negative/*.xml
+tests/negative/*.runtimeconfig.json
+tests/.tmp_test/
+
+## Boot generated
+boot/ncc-core.runtimeconfig.json
+boot/Nemerle.MSBuild.Tasks.dll
+
+## VSCode extension
+ide/vscode/vscode-client/node_modules/
+ide/vscode/vscode-client/out/
+ide/vscode/vscode-client/*.vsix
+
+## Legacy
+*.csproj.user
+*.tmp
+*.Generated.cs
+config.mak
+configure.log
+nemerle.pc
+snippets/VS2010/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/Nemerle*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2012/Projects/Web/WSWebSite/Nemerle*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2012/Projects/Web/WSWebSite/*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2013/Projects/Web/WSWebSite/*.dll
+VsIntegration/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/*.dll
+testsuite/

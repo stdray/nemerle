@@ -15,9 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="tools/msbuild-task/MSBuildTask.cs" />
-    <Compile Include="tools/msbuild-task/GetGitTagRevision.cs" />
-    <Compile Include="tools/msbuild-task/SetEnvironmentVariable.cs" />
-    <Compile Include="tools/msbuild-task/Properties/AssemblyInfo.cs" />
+    <Compile Include="MSBuildTask.cs" />
+    <Compile Include="GetGitTagRevision.cs" />
+    <Compile Include="SetEnvironmentVariable.cs" />
   </ItemGroup>
 </Project>

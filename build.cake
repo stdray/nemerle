@@ -5,7 +5,7 @@
 //////////////////////////////////////////////////////////////////////
 var target        = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
-var nccBoot       = Argument("nccBoot", "boot");
+var nccBoot       = System.IO.Path.GetFullPath(Argument("nccBoot", "boot"));
 var netCoreVersion = Argument("netCoreVersion", "8.0");
 
 var testFilter    = Argument("testFilter", "");
