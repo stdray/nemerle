@@ -80,13 +80,50 @@ function activate(context) {
     client.start().then(() => {
         outputChannel.appendLine('Nemerle language server ready');
     });
+    // Register compile commands
+    context.subscriptions.push(vscode_1.commands.registerCommand('nemerle.compile', async () => {
+        const editor = vscode_1.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'nemerle') {
+            void vscode_1.window.showWarningMessage('No Nemerle file open');
+            return;
+        }
+        if (!client)
+            return;
+        const result = await client.sendRequest('nemerle/compile', {
+            textDocument: { uri: editor.document.uri.toString() }
+        });
+        outputChannel.show();
+        outputChannel.appendLine(result.output);
+        const success = result.success;
+        if (success)
+            void vscode_1.window.showInformationMessage('Compilation successful');
+        else
+            void vscode_1.window.showErrorMessage(`Compilation failed with ${result.errorCount} error(s)`);
+    }), vscode_1.commands.registerCommand('nemerle.compileRun', async () => {
+        const editor = vscode_1.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'nemerle') {
+            void vscode_1.window.showWarningMessage('No Nemerle file open');
+            return;
+        }
+        if (!client)
+            return;
+        const result = await client.sendRequest('nemerle/compileRun', {
+            textDocument: { uri: editor.document.uri.toString() }
+        });
+        outputChannel.show();
+        outputChannel.appendLine(result.output);
+        if (result.success)
+            void vscode_1.window.showInformationMessage('Run successful');
+        else
+            void vscode_1.window.showErrorMessage('Run failed');
+    }));
 }
 function deactivate() {
     outputChannel?.appendLine('Nemerle extension deactivating');
     return client?.stop();
 }
 function findServerExe() {
-    const extPath = path.resolve(__dirname, '..', '..');
+    const extPath = path.resolve(__dirname, '..');
     // 1. User-specified path
     const configured = vscode_1.workspace.getConfiguration('nemerle.server').get('path');
     if (configured && fs.existsSync(configured)) {
