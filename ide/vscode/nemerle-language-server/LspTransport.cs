@@ -12,8 +12,8 @@ public class LspTransport : IDisposable
 
     public LspTransport(Stream input, Stream output)
     {
-        _reader = new StreamReader(input, Encoding.UTF8);
-        _writer = new StreamWriter(output, Encoding.UTF8) { AutoFlush = true };
+        _reader = new StreamReader(input, new UTF8Encoding(false));
+        _writer = new StreamWriter(output, new UTF8Encoding(false)) { AutoFlush = true };
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
