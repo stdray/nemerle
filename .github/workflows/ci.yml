@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build:
+    if: github.ref_type != 'tag'
     runs-on: windows-latest
 
     steps:
