@@ -30,6 +30,8 @@ public class NemerleLanguageServer
         _handlers["textDocument/hover"] = HandleHoverAsync;
         _handlers["textDocument/definition"] = HandleDefinitionAsync;
         _handlers["textDocument/documentSymbol"] = HandleDocumentSymbolAsync;
+        _handlers["nemerle/compile"] = HandleCompileAsync;
+        _handlers["nemerle/compileRun"] = HandleCompileRunAsync;
         _handlers["shutdown"] = HandleShutdownAsync;
         _handlers["exit"] = HandleExitAsync;
     }
@@ -205,6 +207,142 @@ public class NemerleLanguageServer
         }).ToArray();
 
         await _transport.SendResponseAsync(request.Id, result, ct);
+    }
+
+    private async Task HandleCompileAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<CompileParams>(_jsonOpts)!;
+        var doc = _state.GetDocumentByUri(p.TextDocument.Uri);
+        if (doc == null)
+        {
+            await _transport.SendResponseAsync(request.Id, new { success = false, diagnostics = new object[0], output = "File not open" }, ct);
+            return;
+        }
+
+        var diags = await _state.GetDiagnosticsAsync(p.TextDocument.Uri);
+        var errors = diags.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        var success = errors.Count == 0;
+
+        await _transport.SendResponseAsync(request.Id, new
+        {
+            success,
+            diagnostics = diags.Select(d => new
+            {
+                severity = d.Severity?.ToString(),
+                message = d.Message,
+                line = d.Range.Start.Line + 1,
+                col = d.Range.Start.Character + 1
+            }).ToArray(),
+            output = success ? "Compilation successful" : $"Compilation failed with {errors.Count} error(s)",
+            errorCount = errors.Count
+        }, ct);
+    }
+
+    private async Task HandleCompileRunAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<CompileParams>(_jsonOpts)!;
+        var doc = _state.GetDocumentByUri(p.TextDocument.Uri);
+        if (doc == null)
+        {
+            await _transport.SendResponseAsync(request.Id, new { success = false, output = "File not open" }, ct);
+            return;
+        }
+
+        var result = await Task.Run(() =>
+        {
+            try
+            {
+                // Compile to temp exe and run
+                var tempDir = Path.Combine(Path.GetTempPath(), "nemerle-run", Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(tempDir);
+                var sourceFile = Path.Combine(tempDir, "program.n");
+                var outputExe = Path.Combine(tempDir, "program.exe");
+                File.WriteAllText(sourceFile, doc.Text);
+
+                // Use ncc to compile
+                var compilerDir = Path.GetDirectoryName(typeof(Nemerle.Compiler.ManagerClass).Assembly.Location)!;
+                var nccPath = Path.Combine(compilerDir, "ncc-core.exe");
+                var useExe = File.Exists(nccPath);
+
+                var args = new List<string>();
+                if (useExe)
+                {
+                    args.Add($"\"{sourceFile}\"");
+                    args.Add($"-out:\"{outputExe}\"");
+                    args.Add("-target:exe");
+                    args.Add("-nostdlib");
+                    args.Add("-nowarn:10003");
+                    args.Add("-greedy-references:-");
+                }
+                else
+                {
+                    nccPath = "dotnet";
+                    args.Add($"\"{Path.Combine(compilerDir, "ncc-core.dll")}\"");
+                    args.Add($"\"{sourceFile}\"");
+                    args.Add($"-out:\"{outputExe}\"");
+                    args.Add("-target:exe");
+                    args.Add("-nostdlib");
+                    args.Add("-nowarn:10003");
+                    args.Add("-greedy-references:-");
+                }
+
+                // Add framework refs
+                foreach (var r in new[] { "System.Runtime", "System.Console", "System.Collections", "System.IO.FileSystem", "System.Linq" })
+                {
+                    var rpath = Path.Combine(compilerDir, r + ".dll");
+                    if (File.Exists(rpath)) args.Add($"-r:\"{rpath}\"");
+                }
+                foreach (var r in new[] { "Nemerle.dll", "dnlib.dll" })
+                {
+                    var rpath = Path.Combine(compilerDir, r);
+                    if (File.Exists(rpath)) args.Add($"-r:\"{rpath}\"");
+                }
+
+                var psi = new System.Diagnostics.ProcessStartInfo(nccPath, string.Join(" ", args))
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = tempDir
+                };
+
+                using var proc = System.Diagnostics.Process.Start(psi)!;
+                proc.WaitForExit(30000);
+                var compileOutput = proc.StandardOutput.ReadToEnd() + proc.StandardError.ReadToEnd();
+
+                if (proc.ExitCode != 0 || !File.Exists(outputExe))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                    return (false, compileOutput);
+                }
+
+                // Run the compiled exe
+                var runPsi = new System.Diagnostics.ProcessStartInfo("dotnet", $"\"{outputExe}\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WorkingDirectory = tempDir
+                };
+
+                using var runProc = System.Diagnostics.Process.Start(runPsi)!;
+                runProc.WaitForExit(10000);
+                var runOutput = "=== Compilation output ===\n" + compileOutput + "\n=== Program output ===\n" + runProc.StandardOutput.ReadToEnd();
+                var runError = runProc.StandardError.ReadToEnd();
+                if (!string.IsNullOrEmpty(runError)) runOutput += "\n=== stderr ===\n" + runError;
+
+                try { Directory.Delete(tempDir, true); } catch { }
+                return (true, runOutput);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Internal error: {ex.Message}");
+            }
+        });
+
+        await _transport.SendResponseAsync(request.Id, new { success = result.Item1, output = result.Item2 }, ct);
     }
 
     private Task HandleShutdownAsync(LspRequest request, CancellationToken ct)

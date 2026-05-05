@@ -111,6 +111,8 @@ public class ServerState
             return _documents.TryGetValue(uri, out var d) ? d : null;
     }
 
+    public OpenDocument? GetDocumentByUri(string uri) => GetDocument(uri);
+
     public Task<List<Diagnostic>> GetDiagnosticsAsync(string uri)
     {
         var doc = GetDocument(uri);
@@ -147,6 +149,23 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
+        // Try engine hover (real type info + xml-doc)
+        try
+        {
+            if (_engineBridge?.Ready == true)
+            {
+                var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
+                if (!string.IsNullOrEmpty(hintText))
+                {
+                    var mkd = HintMarkdownRenderer.ToMarkdown(hintText);
+                    if (!string.IsNullOrWhiteSpace(mkd))
+                        return Task.FromResult<Hover?>(new Hover(mkd));
+                }
+            }
+        }
+        catch { }
+
+        // Fallback: lexical hover
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         var lines = doc.Text.Split('\n');
         if (position.Line >= lines.Length)
@@ -251,4 +270,4 @@ public class ServerState
     }
 }
 
-internal record OpenDocument(string Uri, string Text, int Version);
+public record OpenDocument(string Uri, string Text, int Version);

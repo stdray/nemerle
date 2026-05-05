@@ -64,6 +64,8 @@ public record DefinitionParams(TextDocumentIdentifier TextDocument, Position Pos
 
 public record DocumentSymbolParams(TextDocumentIdentifier TextDocument);
 
+public record CompileParams(TextDocumentIdentifier TextDocument);
+
 public record InitializeParams
 {
     public int? ProcessId { get; init; }

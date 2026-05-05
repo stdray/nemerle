@@ -89,6 +89,27 @@ namespace Nemerle.Completion2
       catch { _ => array(0) }
     }
 
+    public GetHoverText(uri : string, line : int, col : int) : string
+    {
+      unless (_ready) "";
+
+      def src = FindSource(uri);
+      when (src == null) "";
+
+      def snap = src.GetSourceSnapshot();
+      def lc = LineColumn(line + 1, col + 1);
+      def pos = snap.LineColumnToPosition(lc);
+      def location = Location(snap, pos);
+
+      try
+      {
+        def request = _engine.BeginGetQuickTipInfo(src, location);
+        _ = request.AsyncWaitHandle.WaitOne(10000);
+        if (request.QuickTipInfo != null) request.QuickTipInfo.Text else ""
+      }
+      catch { _ => "" }
+    }
+
     public GetFileUri(fileIndex : int) : string
     {
       if (_ready)
