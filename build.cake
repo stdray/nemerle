@@ -104,10 +104,6 @@ Task("Version")
     Information("GitVersion ShortSha:   {0}", gitVersion.ShortSha);
     Information("GitVersion CommitDate: {0}", gitVersion.CommitDate);
 });
-    Information("GitVersion FullSemVer: {0}", gitVersion.FullSemVer);
-    Information("GitVersion ShortSha:   {0}", gitVersion.ShortSha);
-    Information("GitVersion CommitDate: {0}", gitVersion.CommitDate);
-});
 
 Task("Clean")
     .Does(() =>
