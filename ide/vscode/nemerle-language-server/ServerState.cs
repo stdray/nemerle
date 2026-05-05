@@ -153,7 +153,7 @@ public class ServerState
             return Task.FromResult<Hover?>(null);
 
         var line = lines[position.Line];
-        var defs = word != null ? _analysisEngine.FindDefinitions(doc.Text, word) : new List<Location>();
+        var defs = word != null ? _analysisEngine.FindDefinitions(doc.Text, word, uri) : new List<Location>();
         var md = $"`{line.Trim()}`\n\nLine {position.Line + 1}, Col {position.Character + 1}";
         if (word != null) md += $"\n\n**Identifier:** `{word}`";
         if (defs.Count > 0) md += $"\n\n**Defined at line {defs[0].Range.Start.Line + 1}**";
@@ -182,7 +182,7 @@ public class ServerState
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
         if (word == null) return Task.FromResult(new List<Location>());
 
-        var defs = _analysisEngine.FindDefinitions(doc.Text, word);
+        var defs = _analysisEngine.FindDefinitions(doc.Text, word, uri);
         return Task.FromResult(defs);
     }
 

@@ -31,7 +31,7 @@ public partial class AnalysisEngine
         return word.Length > 0 ? word : null;
     }
 
-    public List<Location> FindDefinitions(string text, string word)
+    public List<Location> FindDefinitions(string text, string word, string uri)
     {
         var results = new List<Location>();
         var lines = text.Split('\n');
@@ -51,16 +51,15 @@ public partial class AnalysisEngine
                     var nameGroup = match.Groups[1];
                     var col = indent + nameGroup.Index;
                     results.Add(new Location(
-                        "file:///test/t.n",
+                        uri,
                         new Range(
                             new Position(lineNum, col),
                             new Position(lineNum, col + nameGroup.Length))));
-                    break; // Found in this line
+                    break;
                 }
             }
         }
 
-        // If not found by keyword, check if it's a function definition at line start
         if (results.Count == 0)
         {
             for (int lineNum = 0; lineNum < lines.Length; lineNum++)
@@ -73,7 +72,7 @@ public partial class AnalysisEngine
                 if (funcMatch.Success)
                 {
                     results.Add(new Location(
-                        "file:///test/t.n",
+                        uri,
                         new Range(
                             new Position(lineNum, indent),
                             new Position(lineNum, indent + word.Length))));
