@@ -13,7 +13,7 @@ obj/
 
 ## Cake
 tools/.store/
-tools/dotnet-*.exe
+tools/dotnet-gitversion*
 
 ## NuGet
 *.nupkg

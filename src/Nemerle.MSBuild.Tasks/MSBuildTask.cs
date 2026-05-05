@@ -140,7 +140,13 @@ namespace Nemerle.Tools.MSBuildTask
                 if (string.IsNullOrEmpty(dotnetPath))
                     dotnetPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
-                var dotnetExe = Path.Combine(dotnetPath, "dotnet.exe");
+                var dotnetExe = Path.Combine(dotnetPath, "dotnet");
+                if (File.Exists(dotnetExe)) return dotnetExe;
+                // Fallback: get from PATH
+                var dotnetFromPath = FindExecutable("dotnet");
+                if (dotnetFromPath != null) return dotnetFromPath;
+                // Last resort (Windows fallback)
+                dotnetExe = Path.Combine(dotnetPath, "dotnet.exe");
                 if (File.Exists(dotnetExe)) return dotnetExe;
                 return FindExecutable("dotnet.exe") ?? "dotnet";
             }
