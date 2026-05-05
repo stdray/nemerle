@@ -70,7 +70,7 @@ export function deactivate(): Thenable<void> | undefined {
 }
 
 function findServerExe(): string | null {
-    const extPath = path.resolve(__dirname, '..', '..');
+    const extPath = path.resolve(__dirname, '..');
 
     // 1. User-specified path
     const configured = workspace.getConfiguration('nemerle.server').get<string>('path');
