@@ -1,0 +1,478 @@
+<Project DefaultTargets="Stage2" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <UsingTask TaskName="MSBuild.Community.Tasks.FileUpdate" AssemblyFile="$(MSBuildProjectDirectory)\ExternalDependences\MSBuild.Community.Tasks.dll" />
+  <PropertyGroup>
+    <ExeRunner></ExeRunner>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(NTargetName)' == '' ">
+    <NTargetName>Rebuild</NTargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(NInstall)' == '' ">
+    <!--Folder for Nemerle installation. To install use "Install" target.-->
+    <NInstall>$(ProgramFiles)\Nemerle\Net-8.0</NInstall>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <!--Path to root directory of Nemerle sources.-->
+    <NRoot>$(MSBuildProjectDirectory)</NRoot>
+    <!-- Original boot -->
+    <NRootBoot>$(NRoot)\boot</NRootBoot>
+    <!--Path to stages output directory (including current configuration subfolder).-->
+    <NBin>$(NRoot)\bin\$(Configuration)</NBin>
+    <NObj>$(NRoot)\obj\$(Configuration)</NObj>
+    <!--Path to boot compiler.-->
+    <NBoot>$(NBin)\boot\</NBoot>
+    <!-- Project Constants -->
+    <NInstallIntegration Condition=" '$(NInstallIntegration)' == '' ">False</NInstallIntegration>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NProjectConstants>NET_8_0</NProjectConstants>
+    <NProjectConstants Condition="'$(Configuration)' == 'Debug'">$(NProjectConstants);DEBUG</NProjectConstants>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NDefineProjectConstants>DefineConstants=$(NProjectConstants)</NDefineProjectConstants>
+  </PropertyGroup>
+  <!--Project required to build any Nemerle project (.nproj)-->
+  <ItemGroup>
+    <NTasksProject Include="$(NRoot)\Nemerle.MSBuild.Tasks.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <CSharpCompilerFiles Include ="$(NBin)\PowerPack\CSharpParser.dll;$(NBin)\PowerPack\ncc.parser.csharp.dll;$(NBin)\PowerPack\Nemerle.Peg.dll"/>
+  </ItemGroup>
+  <!--Projects related only to compiler.-->
+  <ItemGroup>
+    <NCompilerProject Include="$(NRoot)\Nemerle.nproj" />
+    <NCompilerProject Include="$(NRoot)\Nemerle.Compiler.nproj" />
+    <NCompilerProject Include="$(NRoot)\Nemerle.Macros.nproj" />
+    <NCompilerProject Include="$(NRoot)\ncc-core.nproj" />
+  </ItemGroup>
+  <!-- Compiler test projects and Nemerle.Diff -->
+  <ItemGroup>
+    <NTestFramework Include="$(NRoot)\snippets\Nemerle.Test\Nemerle.Test.Framework\Nemerle.Test.Framework.nproj" />
+    <NTestFramework Include="$(NRoot)\snippets\Nemerle.Test\Nemerle.Compiler.Test\Nemerle.Compiler.Test.nproj" />
+    <NTestFramework Include="$(NRoot)\snippets\Nemerle.Diff\Nemerle.Diff\Nemerle.Diff.nproj" />
+    <NTestFramework Include="$(NRoot)\snippets\Nemerle.Diff\Nemerle.Diff.Tests\Nemerle.Diff.Tests.nproj" />
+  </ItemGroup>
+  
+  <!--Projects related to Nemerle.Peg-->
+  <ItemGroup>
+    <NPeg Include="$(NRoot)\snippets\peg-parser\Nemerle.Peg\Nemerle.Peg.nproj" />
+    <NPeg Include="$(NRoot)\snippets\peg-parser\Nemerle.Peg.Macros\Nemerle.Peg.Macros.nproj" />
+  </ItemGroup>
+
+  <!--Projects related to C# parser-->
+  <ItemGroup>
+    <NCSharp Include="$(NRoot)\snippets\csharp-parser\CSharpParser\CSharpParser.nproj" />
+    <NCSharp Include="$(NRoot)\snippets\csharp-parser\CSharpToNemerle\CSharpToNemerle.nproj" />
+    <NCSharp Include="$(NRoot)\snippets\csharp-parser\CSharpParser.TestMacros\CSharpParser.TestMacros.nproj" />
+    <NCSharp Include="$(NRoot)\snippets\csharp-parser\CSharpParser.Tests\CSharpParser.Tests.nproj" />
+  </ItemGroup>
+
+  <!--Projects related to ComputationExpressions -->
+  <ItemGroup>
+    <NComputationExpressions Include="$(NRoot)\snippets\ComputationExpressions\ComputationExpressions\ComputationExpressions.nproj" />
+    <NComputationExpressions Include="$(NRoot)\snippets\ComputationExpressions\ComputationExpressions.Macros\ComputationExpressions.Macros.nproj" />
+    <NComputationExpressions Include="$(NRoot)\snippets\ComputationExpressions\Test\Test.nproj" />
+  </ItemGroup>
+
+  <!--Projects related to Nemerle.Async -->
+  <ItemGroup>
+    <NAsync Include="$(NRoot)\snippets\Nemerle.Async\Nemerle.Async\Nemerle.Async.nproj" />
+    <NAsync Include="$(NRoot)\snippets\Nemerle.Async\Nemerle.Async.Macros\Nemerle.Async.Macros.nproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Nemerle.Statechart_snippets.nproj" />
+    <NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Lib\Nemerle.Statechart.Lib.nproj" />
+    <NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Nemerle.Statechart.Runtime\Nemerle.Statechart.Runtime.nproj" />
+    <NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Tests\fsmtest\fsmtest_release.nproj" />
+    <!--<NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Tests\fsmtest\fsmtest.nproj" />
+    <NStatechart Include="$(NRoot)\snippets\Nemerle.Statechart\Tests\gui_file_test\FileFsmTest.nproj" />-->
+  </ItemGroup>
+
+  <!--Projects related to PowerPack-->
+  <ItemGroup>
+    <NPowerPack Include="$(NRoot)\snippets\Nemerle.Xml\Nemerle.Xml.Macro\Nemerle.Xml.Macro.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\ObjectExpressions\NewObjectMacro\NewObjectMacro.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\Nemerle.Diff\Nemerle.Diff\Nemerle.Diff.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\aop\DevMacros.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\aop\Nemerle.Aop.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\ActivePatterns\ActivePatterns\Nemerle.ActivePatterns.nproj" />
+    <NPowerPack Include="$(NRoot)\snippets\Nemerle.VirtualStatics\Nemerle.VirtualStatics\Nemerle.VirtualStatics.nproj" />
+  </ItemGroup>
+
+  <!--Projects related to Linq-->
+  <ItemGroup>
+    <NLinq Include="$(NRoot)\Linq\Macro\Linq.nproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NUnsafe Include="$(NRoot)\snippets\Nemerle.Unsafe\Nemerle.Unsafe\Nemerle.Unsafe.nproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NWpf Include="$(NRoot)\snippets\Nemerle.WPF\Nemerle.WPF\Nemerle.WPF.nproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <CompilerTestsFiles Include="$(NBin)\Tests\**\*.*" />
+  </ItemGroup>
+
+  <!--Projects related to tools-->
+  <ItemGroup>
+    <NTools Include="$(NRoot)\tools\nemish.nproj" />
+    <NTools Include="$(NRoot)\tools\Nemerle.Evaluation.nproj" />
+    <NTools Include="$(NRoot)\tools\Nemerle.NAnt.Tasks.nproj" />
+    <NTools Include="$(NRoot)\tools\reflector-addon\reflector-addon.nproj" />
+  </ItemGroup>
+
+  <!--Projects related to integration-->
+  <ItemGroup>
+    <NIntegrationProject Include="$(NRoot)\snippets\VS2010\WpfHint\WpfHint.csproj" />
+    <NIntegrationProject Include="$(NRoot)\snippets\VS2010\Nemerle.Compiler.Utils\Nemerle.Compiler.Utils.nproj" />
+    <NIntegrationProject Include="$(NRoot)\snippets\VS2010\Nemerle.VsExtension\Nemerle.VsExtension.csproj" />
+  </ItemGroup>
+
+  <!--Using .NET 8 SDK tools-->
+  <Target Name="InitTools">
+    <Message Text="Using .NET 8 SDK" Importance="high" />
+  </Target>
+  <!--Builds and deploy tasks dll into boot directory-->
+  <Target Name="NTasks" DependsOnTargets="InitTools">
+    <MSBuild Projects="@(NTasksProject)" Properties="OutputPath=$(NBoot); IntermediateOutputPath=$(NObj)\Tasks\; NKeysDir=$(NBin)\keys" Targets="$(NTargetName)" />
+    <!-- Copy SDK .props/.targets from source to boot -->
+    <Copy SourceFiles="$(NRoot)\tools\msbuild-task\Nemerle.Sdk.props;$(NRoot)\tools\msbuild-task\Nemerle.Sdk.targets;$(NRoot)\tools\msbuild-task\Nemerle.MSBuild.targets" DestinationFolder="$(NBoot)" />
+    <CreateItem Include="$(NBoot)\Nemerle.MSBuild.Tasks.dll">
+      <Output ItemName="NTasksFiles" TaskParameter="Include" />
+    </CreateItem>
+    <CreateItem Include="$(NBoot)\Nemerle.MSBuild.targets">
+      <Output ItemName="NTasksFiles" TaskParameter="Include" />
+    </CreateItem>
+    <CreateItem Include="$(NBoot)\Nemerle.Sdk.props">
+      <Output ItemName="NTasksFiles" TaskParameter="Include" />
+    </CreateItem>
+    <CreateItem Include="$(NBoot)\Nemerle.Sdk.targets">
+      <Output ItemName="NTasksFiles" TaskParameter="Include" />
+    </CreateItem>
+  </Target>
+  <!--Boot files-->
+  <Target Name="NPrepareBoot">
+    <CreateItem  Include="$(NRootBoot)\*.exe">
+      <Output ItemName="NBootFiles" TaskParameter="Include" />
+    </CreateItem>
+    <CreateItem Include="$(NRootBoot)\*.dll">
+      <Output ItemName="NBootFiles" TaskParameter="Include" />
+    </CreateItem>
+    <Copy SourceFiles="@(NBootFiles)" DestinationFolder="$(NBoot)" />
+  </Target>
+  <!--Keys-->
+  <Target Name="NPrepareKeys">
+    <CreateItem Include="$(NRoot)\misc\keys\*.snk">
+      <Output ItemName="NKeyFiles" TaskParameter="Include"/>
+    </CreateItem>
+    <Copy SourceFiles="@(NKeyFiles)" DestinationFolder="$(NBin)\keys" />
+  </Target>
+  <!--Builds compiler using boot-->
+  <Target Name="Stage1" DependsOnTargets="NPrepareKeys;NPrepareBoot;NTasks">
+    <PropertyGroup>
+      <NPrevBin>$(NBoot)</NPrevBin>
+      <NCurBin>$(NBin)\Stage1</NCurBin>
+      <NCurObj>$(NObj)\Stage1</NCurObj>
+    </PropertyGroup>
+    <Message Importance="high" Text="SDKBin='$(SDKBin)'" />
+    <Message Importance="high" Text="SDK_3='$(SDK_3)'" />
+    <!-- _dummy value is required due to MSBuild issue: https://github.com/microsoft/msbuild/issues/2811 -->
+    <MSBuild Projects="@(NCompilerProject)" Properties="OutputPath=$(NCurBin); IntermediateOutputPath=$(NCurObj)\; Nemerle=$(NPrevBin); NKeysDir=$(NBin)\keys; SDKBin=$(SDKBin); _dummy=1" Targets="Restore" />
+    <ItemGroup>
+      <ProjectAssetsJsonFile Include="$(NCurObj)\**\project.assets.json" />
+      <ProjectAssetsFile Include="$([System.IO.Path]::GetDirectoryName('%(ProjectAssetsJsonFile.Identity)'))\*.*">
+        <SubDirectoryName>$([System.IO.Path]::GetFileName('$([System.IO.Path]::GetDirectoryName('%(ProjectAssetsJsonFile.Identity)'))'))</SubDirectoryName>
+      </ProjectAssetsFile>
+    </ItemGroup>
+    <MSBuild Projects="@(NCompilerProject)" Properties="OutputPath=$(NCurBin); IntermediateOutputPath=$(NCurObj)\; Nemerle=$(NPrevBin); NKeysDir=$(NBin)\keys; SDKBin=$(SDKBin); _dummy=2" Targets="$(NTargetName)" />
+    <Copy SourceFiles="@(NTasksFiles)" DestinationFolder="$(NCurBin)" />
+  </Target>
+  <!--Builds compiler using Stage1-->
+  <Target Name="Stage2" DependsOnTargets="Stage1">
+    <PropertyGroup>
+      <NPrevBin>$(NBin)\Stage1</NPrevBin>
+      <NCurBin>$(NBin)\Stage2</NCurBin>
+      <NCurObj>$(NObj)\Stage2</NCurObj>
+    </PropertyGroup>
+    <Copy SourceFiles="@(ProjectAssetsFile)" DestinationFolder="$(NCurObj)\%(ProjectAssetsFile.SubDirectoryName)" />
+    <MSBuild Projects="@(NCompilerProject)" Properties="OutputPath=$(NCurBin); IntermediateOutputPath=$(NCurObj)\; Nemerle=$(NPrevBin); NKeysDir=$(NBin)\keys; SDKBin=$(SDKBin)" Targets="$(NTargetName)" />
+    <Copy SourceFiles="@(NTasksFiles)" DestinationFolder="$(NCurBin)" />
+  </Target>
+  <!--Builds compiler using Stage2-->
+  <Target Name="Stage3" DependsOnTargets="Stage2">
+    <PropertyGroup>
+      <NPrevBin>$(NBin)\Stage2</NPrevBin>
+      <NCurBin>$(NBin)\Stage3</NCurBin>
+      <NCurObj>$(NObj)\Stage3</NCurObj>
+    </PropertyGroup>
+    <Copy SourceFiles="@(ProjectAssetsFile)" DestinationFolder="$(NCurObj)\%(ProjectAssetsFile.SubDirectoryName)" />
+    <MSBuild Projects="@(NCompilerProject)" Properties="OutputPath=$(NCurBin); IntermediateOutputPath=$(NCurObj)\; Nemerle=$(NPrevBin); NKeysDir=$(NBin)\keys; SDKBin=$(SDKBin)" Targets="$(NTargetName)" />
+    <Copy SourceFiles="@(NTasksFiles)" DestinationFolder="$(NCurBin)" />
+  </Target>
+  <!--Builds compiler using Stage3-->
+  <Target Name="Stage4" DependsOnTargets="Stage3">
+    <PropertyGroup>
+      <NPrevBin>$(NBin)\Stage3</NPrevBin>
+      <NCurBin>$(NBin)\Stage4</NCurBin>
+      <NCurObj>$(NObj)\Stage4</NCurObj>
+    </PropertyGroup>
+    <Copy SourceFiles="@(ProjectAssetsFile)" DestinationFolder="$(NCurObj)\%(ProjectAssetsFile.SubDirectoryName)" />
+    <MSBuild Projects="@(NCompilerProject)" Properties="OutputPath=$(NCurBin); IntermediateOutputPath=$(NCurObj)\; Nemerle=$(NPrevBin); NKeysDir=$(NBin)\keys; SDKBin=$(SDKBin)" Targets="$(NTargetName)" />
+    <Copy SourceFiles="@(NTasksFiles)" DestinationFolder="$(NCurBin)" />
+  </Target>
+
+  <!--Builds only PowerPack using Stage1 compiler.-->
+  <Target Name="PowerPack" DependsOnTargets="Stage1; _PowerPack" />
+
+  <!--Builds all tools, linq, vs integration and shell. Only Stage1 compiler required.-->
+  <Target Name="IntegrationFast" DependsOnTargets="Stage1; _Integration" />
+
+  <!--Builds all tools, linq, vs integration and shell. Stage4 compiler required.-->
+  <Target Name="IntegrationFull" DependsOnTargets="Stage4; Validate; CompilerTests; _Integration; IdeEngineTests" />
+
+  <!--Builds MSI package. Only Stage1 compiler required.-->
+  <Target Name="InstallerFast" DependsOnTargets="IntegrationFast; _PowerPack; _NugetPack; _Installer;" />
+
+  <!--Builds MSI package. Stage4 compiler required.-->
+  <Target Name="InstallerFull" DependsOnTargets="IntegrationFull; _PowerPack; _NugetPack; _Installer;"  />
+
+  <!--Compare last two stages on IL level-->
+  <Target Name="Validate" DependsOnTargets="InitTools">
+    <ItemGroup>
+      <Asm2 Include="$(NPrevBin)\Nemerle*.dll" />
+      <Asm2 Include="$(NPrevBin)\ncc*.exe" />
+      <Asm3 Include="$(NCurBin)\Nemerle*.dll" />
+      <Asm3 Include="$(NCurBin)\ncc*.exe" />
+    </ItemGroup>
+    <PropertyGroup>
+      <ValidateOutParameter>/out</ValidateOutParameter>
+      <ValidateAdditionalParameters>/nobar</ValidateAdditionalParameters>
+    </PropertyGroup>
+    <Exec Command="$(Ildasm) &quot;%(Asm2.FullPath)&quot; $(ValidateOutParameter)=&quot;%(Asm2.FullPath).il&quot; $(ValidateAdditionalParameters)" WorkingDirectory="$(NPrevBin)" />
+    <Exec Command="$(Ildasm) &quot;%(Asm3.FullPath)&quot; $(ValidateOutParameter)=&quot;%(Asm3.FullPath).il&quot; $(ValidateAdditionalParameters)" WorkingDirectory="$(NCurBin)" />
+    <ItemGroup>
+      <IL_PREV Include="$(NPrevBin)\*.il" />
+      <IL_LAST Include="$(NCurBin)\*.il" />
+    </ItemGroup>
+    <MSBuild.Community.Tasks.FileUpdate Files="@(IL_PREV)" Regex="^(//.*)(?=\r)" ReplacementText="// REPLACED" Multiline="True" />
+    <MSBuild.Community.Tasks.FileUpdate Files="@(IL_LAST)" Regex="^(//.*)(?=\r)" ReplacementText="// REPLACED" Multiline="True" />
+    <!-- Compare IL -->
+    <Exec Command="fc &quot;$(NPrevBin)\*.il&quot; &quot;$(NCurBin)\*.il&quot;" />
+    <Exec Command="$(PEVerify) &quot;%(Asm3.FullPath)&quot;" ContinueOnError="False" />
+    <Delete Files="@(IL_PREV)" />
+    <Delete Files="@(IL_LAST)" />
+  </Target>
+
+  <!--Runs compiler tests.-->
+  <Target Name="CompilerTests" DependsOnTargets="Linq;Unsafe;_PegAndCSharp;TestFramework;_Wpf">
+    <PropertyGroup>
+      <NTeamCityPositiveTestArguments Condition=" '$(TEAMCITY_VERSION)' != '' ">"-team-city-test-suite:Ncc-Positive-net8.0"</NTeamCityPositiveTestArguments>
+      <NTeamCityNegativeTestArguments Condition=" '$(TEAMCITY_VERSION)' != '' ">"-team-city-test-suite:Ncc-Negative-net8.0"</NTeamCityNegativeTestArguments>
+    </PropertyGroup>
+    <CreateItem Include="$(NBin)\TestFramework\*.*">
+      <Output ItemName="NTestFrameworkFiles" TaskParameter="Include" />
+    </CreateItem>
+    <Exec Command="IF EXIST &quot;$(NBin)\Tests\&quot; DEL &quot;$(NBin)\Tests\&quot; /F /S /Q" WorkingDirectory="$(NBin)\" />
+    <Copy SourceFiles="$(NBin)\Linq\Nemerle.Linq.dll;$(NBin)\Unsafe\Nemerle.Unsafe.dll;@(CSharpCompilerFiles)" DestinationFolder="$(NBin)\Tests\positive" />
+    <Copy SourceFiles="$(NBin)\Linq\Nemerle.Linq.dll;$(NBin)\Unsafe\Nemerle.Unsafe.dll;@(CSharpCompilerFiles)" DestinationFolder="$(NBin)\Tests\negative" />
+    <Copy SourceFiles="$(NBin)\PowerPack\Nemerle.WPF.dll" DestinationFolder="$(NBin)\Tests\positive" />
+    <Copy SourceFiles="$(NBin)\PowerPack\Nemerle.WPF.dll" DestinationFolder="$(NBin)\Tests\negative" />
+    <!--Delete all temporary files in old testing directory-->
+    <CreateItem Include="$(NRoot)\testsuite\*.exe;$(NRoot)\testsuite\*.dll;$(NRoot)\testsuite\*.pdb">
+      <Output ItemName="NTestSuiteTempFiles" TaskParameter="Include"/>
+    </CreateItem>
+    <Delete Files="@(NTestSuiteTempFiles)" />
+    <!--Copy test files to the testing directory-->
+    <CreateItem Include="$(NRoot)\testsuite\*.*">
+      <Output ItemName="NTestSuiteFiles" TaskParameter="Include" />
+    </CreateItem>
+    <Copy SourceFiles="@(NTestFrameworkFiles);@(NTestSuiteFiles)" DestinationFolder="$(NBin)\Tests\positive" />
+    <Copy SourceFiles="@(NTestFrameworkFiles);@(NTestSuiteFiles)" DestinationFolder="$(NBin)\Tests\negative" />
+    <!--Run positive tests-->
+    <Exec Command="$(ExeRunner)&quot;$(NBin)\Tests\positive\Nemerle.Compiler.Test.exe&quot; $(NTeamCityPositiveTestArguments) -output:. &quot;-p:-nowarn:10003 -def:$(NProjectConstants)&quot; &quot;$(NRoot)\testsuite\positive\*.n&quot; &quot;$(NRoot)\testsuite\positive\*.nnn&quot; &quot;$(NRoot)\testsuite\positive\*.cs&quot;" WorkingDirectory="$(NBin)\Tests\positive" IgnoreStandardErrorWarningFormat="true" />
+    <!--Run negative tests-->
+    <Exec Command="$(ExeRunner)&quot;$(NBin)\Tests\negative\Nemerle.Compiler.Test.exe&quot; $(NTeamCityNegativeTestArguments) -output:. &quot;-p:-nowarn:10003 -def:$(NProjectConstants)&quot; &quot;$(NRoot)\testsuite\negative\*.n&quot; &quot;$(NRoot)\testsuite\negative\*.nnn&quot; &quot;$(NRoot)\testsuite\negative\*.cs&quot;" WorkingDirectory="$(NBin)\Tests\negative" IgnoreStandardErrorWarningFormat="true" />
+  </Target>
+
+  <!--Install Nemerle compiler to specified folder. By default to ProgramFiles. To override folder set NInstall property.-->
+  <Target Name="Install" DependsOnTargets="InitTools">
+    <Error Condition=" '$(NCurBin)' == '' " Text="Property NCurBin is not set. Any stage of compilation should preceed the Install target." />
+    <Message Importance="high" Text="Install binaries from: '$(NCurBin)'" />
+    <ItemGroup>
+      <_FilesToCopyToNInstallExculde Include="Nemerle.dll" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.pdb" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.xml" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Compiler.dll" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Compiler.pdb" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Compiler.xml" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Macros.dll" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Macros.pdb" />
+      <_FilesToCopyToNInstallExculde Include="Nemerle.Macros.xml" />
+
+      <FilesToCopyToNInstall Include="$(NBin)\Linq\*.*" Exclude="@(_FilesToCopyToNInstallExculde->'$(NBin)\Linq\%(Filename)%(Extension)')" />
+      <FilesToCopyToNInstall Include="$(NBin)\Unsafe\*.*" Exclude="@(_FilesToCopyToNInstallExculde->'$(NBin)\Unsafe\%(Filename)%(Extension)')" />
+      <FilesToCopyToNInstall Include="$(NBin)\TestFramework\*.*" Exclude="@(_FilesToCopyToNInstallExculde->'$(NBin)\TestFramework\%(Filename)%(Extension)')" />
+      <FilesToCopyToNInstall Include="$(NBin)\PowerPack\*.*" Exclude="@(_FilesToCopyToNInstallExculde->'$(NBin)\PowerPack\%(Filename)%(Extension)')" />
+      <FilesToCopyToNInstall Include="$(NBin)\Nuget\*.*" />
+      <FilesToCopyToNInstall Include="$(NCurBin)\*.*" />
+    </ItemGroup>
+
+    <Copy SkipUnchangedFiles="true" SourceFiles="@(FilesToCopyToNInstall)" DestinationFolder="$(NInstall)" />
+  </Target>
+
+  <!--Helper target to build integration-->
+  <Target Name="_Integration" DependsOnTargets="Linq;Unsafe;TestFramework">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\VsIntegration\; Nemerle=$(NCurBin); Configuration=$(Configuration); BaseIntermediateOutputPath=$(NObj)\VsIntegration\; IntermediateOutputPath=$(NObj)\VsIntegration\; NKeysDir=$(NBin)\keys; DeployExtension=$(NInstallIntegration)</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NIntegrationProject)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NIntegrationProject)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+  </Target>
+
+  <Target Name="TestFramework">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\TestFramework\; IntermediateOutputPath=$(NObj)\TestFramework\; Nemerle=$(NCurBin); $(NDefineProjectConstants); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NTestFramework)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NTestFramework)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+    <!-- run Nemerle.Diff tests -->
+    <Exec Command="$(ExeRunner)&quot;$(NBin)\TestFramework\Nemerle.Diff.Tests.exe&quot;" />
+  </Target>
+
+  <Target Name="Linq">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\Linq\; IntermediateOutputPath=$(NObj)\Linq\; Nemerle=$(NCurBin); $(NDefineProjectConstants); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NLinq)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NLinq)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+  </Target>
+
+  <Target Name="Unsafe">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\Unsafe\; IntermediateOutputPath=$(NObj)\Unsafe\; Nemerle=$(NCurBin); $(NDefineProjectConstants); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NUnsafe)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NUnsafe)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+  </Target>
+
+  <Target Name="Tools">
+    <MSBuild Projects="@(NTools)" Properties="OutputPath=$(NBin)\Tools\; IntermediateOutputPath=$(NObj)\Tools\; Nemerle=$(NCurBin); $(NDefineProjectConstants); Configuration=$(Configuration); NKeysDir=$(NBin)\keys" Targets="$(NTargetName)" />
+  </Target>
+
+  <!--Helper target to build PEG, C# parser, and test it -->
+  <Target Name="_PegAndCSharp">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NPeg);@(NCSharp)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NPeg)"            Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+    <MSBuild Projects="@(NCSharp)"         Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+    <!-- run tests -->
+    <Exec Command="$(ExeRunner)&quot;$(NBin)\PowerPack\CSharpParser.Tests.exe&quot;" />
+  </Target>
+
+  <!--Helper target to build ComputationExpressions and test it -->
+  <Target Name="_ComputationExpressions">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NComputationExpressions)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NComputationExpressions)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+    <!-- run tests -->
+    <!--<Exec Command="$(ExeRunner)&quot;$(NBin)\PowerPack\ComputationExpressions.Tests.exe&quot;" />-->
+  </Target>
+  
+  <!--Helper target to build Nemerle.Async and test it -->
+  <Target Name="_Async">
+    <PropertyGroup>
+      <BuildProps>OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); Configuration=$(Configuration); NKeysDir=$(NBin)\keys</BuildProps>
+    </PropertyGroup>
+    <MSBuild Projects="@(NAsync)" Properties="$(BuildProps);_dummy=1" Targets="Restore" />
+    <MSBuild Projects="@(NAsync)" Properties="$(BuildProps);_dummy=2" Targets="$(NTargetName)" />
+  </Target>
+  
+  <!--Helper target to build Nemerle.Statechart and test it -->
+  <Target Name="_Statechart" DependsOnTargets="_PegAndCSharp">
+    <MSBuild Projects="@(NStatechart)" Properties="OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); NemerlePowerPack=$(NBin)\PowerPack; Configuration=$(Configuration); NKeysDir=$(NBin)\keys" Targets="$(NTargetName)" />    
+    <!-- run tests -->
+    <!-- <Exec Command="$(ExeRunner)&quot;$(NBin)\PowerPack\fsmtest.exe&quot;" /> -->
+  </Target>
+
+  <PropertyGroup>    
+    <PowerPackDir>$(NBin)\PowerPack\</PowerPackDir>
+    <NSTestSuiteDir>$(NRoot)\snippets\Nemerle.Statechart\tests\testsuite\</NSTestSuiteDir>
+    <NSTestsDir>$(NSTestSuiteDir)\tests\</NSTestsDir>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <NStateChartTestFiles Include="$(PowerPackDir)\Nemerle.Statechart.Lib.dll" />
+    <NStateChartTestFiles Include="$(PowerPackDir)\Nemerle.dll" />
+    <NStateChartTestFiles Include="$(PowerPackDir)\Nemerle.Statechart.dll" />
+    <NStateChartTestFiles Include="$(PowerPackDir)\Nemerle.Statechart.Runtime.dll" />
+    <NStateChartTestFiles Include="$(PowerPackDir)\fsmtest.exe" />
+    <NStateChartRefFiles Include="@(NStateChartTestFiles)" Exclude="$(PowerPackDir)\Nemerle.dll"/>
+    <NStateChartRefs Include="@(NStateChartRefFiles->'$(NSTestsDir)\%(filename)%(extension)')" />    
+  </ItemGroup>
+  
+  <Target Name="NStatechartTests" DependsOnTargets="Stage1;_Statechart">
+    <ItemGroup>
+      <NSTestsRefs Include="@(NStateChartRefs->'-ref:&quot;%(identity)&quot;')" />      
+    </ItemGroup>
+    
+    <PropertyGroup>
+      <NTest>$(NBin)\TestFramework\Nemerle.Compiler.Test.exe</NTest>
+      <TestCommand>$(ExeRunner)$(NTest) @(NSTestsRefs, ' ') -output:tests\ positive\*.n negative\*.n</TestCommand>
+    </PropertyGroup>
+
+    <Delete Files="$(NSTestsDir)\*.*" />
+    <Copy SourceFiles="@(NStateChartTestFiles)" DestinationFolder="$(NSTestsDir)" />
+
+    <Exec Command="$(TestCommand)" WorkingDirectory="$(NSTestSuiteDir)" />
+  </Target>
+  
+  <!--Helper target to build Nemerle.WPF -->
+  <Target Name="_Wpf">
+    <MSBuild Projects="@(NWpf)" Properties="OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); NemerlePowerPack=$(NBin)\PowerPack; Configuration=$(Configuration); NKeysDir=$(NBin)\keys" Targets="$(NTargetName)" />
+  </Target>
+
+  <!--Helper target to build power pack-->
+  <Target Name="_PowerPack" DependsOnTargets="_PegAndCSharp; Unsafe; TestFramework; _ComputationExpressions; _Async; _Statechart; _Wpf">
+    <MSBuild Projects="@(NPowerPack)" Properties="OutputPath=$(NBin)\PowerPack\; IntermediateOutputPath=$(NObj)\PowerPack\; Nemerle=$(NCurBin); Configuration=$(Configuration); NKeysDir=$(NBin)\keys" Targets="$(NTargetName)" />
+  </Target>
+  
+  <Target Name="_NugetPack" DependsOnTargets="_PegAndCSharp; TestFramework">
+    <GetAssemblyIdentity AssemblyFiles="$(NCurBin)\Nemerle.dll">
+      <Output TaskParameter="Assemblies" ItemName="NemerleRuntimeIdentity" />
+    </GetAssemblyIdentity>
+    
+    <PropertyGroup>
+      <NemerleProductVersion>$([System.Text.RegularExpressions.Regex]::Replace('%(NemerleRuntimeIdentity.Version)', '(?&lt;major&gt;\d+)\.(?&lt;minor&gt;\d+)\.0\.(?&lt;build&gt;\d+)', '${major}.${minor}.${build}.0'))</NemerleProductVersion>
+      <NugetOutput>$(NBin)\Nuget</NugetOutput>
+      <NugetProperties>NBin=$(NBin);NCurBin=$(NCurBin);version=$(NemerleProductVersion)</NugetProperties>
+    </PropertyGroup>
+    
+    <RemoveDir Directories="$(NugetOutput)" />
+    <MakeDir Directories="$(NugetOutput)" />
+    <Exec Command="$(Nuget) pack Nemerle.nuspec          -OutputDirectory &quot;$(NugetOutput)&quot; -Properties &quot;$(NugetProperties)&quot;" WorkingDirectory="$(NRoot)" />
+    <Exec Command="$(Nuget) pack Nemerle.Compiler.nuspec -OutputDirectory &quot;$(NugetOutput)&quot; -Properties &quot;$(NugetProperties)&quot;" WorkingDirectory="$(NRoot)" />
+  </Target>
+
+  <Target Name="DevBuildQuickNccOnly"    DependsOnTargets="Stage1;                                                                                Install" />
+  <Target Name="DevBuildQuick"           DependsOnTargets="Stage1;                          _NugetPack; _Integration;                             Install" />
+  <Target Name="DevBuildQuickWithTests"  DependsOnTargets="Stage1;           CompilerTests; _NugetPack; _Integration; IdeEngineTests;             Install" />
+  <Target Name="DevBuild2Stage"          DependsOnTargets="Stage2;                          _NugetPack; _Integration;                             Install" />
+  <Target Name="DevBuild2StageWithTests" DependsOnTargets="Stage2;           CompilerTests; _NugetPack; _Integration; IdeEngineTests;             Install" />
+  <Target Name="DevBuildFull"            DependsOnTargets="Stage4; Validate; CompilerTests; _NugetPack; _Integration; IdeEngineTests; _PowerPack; Install" />
+
+  <!--Helper target to build installer.-->
+  <Target Name="_Installer">
+    <PropertyGroup>
+      <NCurBin Condition=" '$(NCurBin)' == '' ">$(NBin)\Stage1</NCurBin>
+    </PropertyGroup>
+    <MSBuild Projects="$(NRoot)\misc\packages\wix\nemerle.sln" Targets="$(NTargetName)" Properties="OutputPath=$(NBin)\Installer\; IntermediateOutputPath=$(NObj)\Installer\; Nemerle=$(NCurBin); Configuration=$(Configuration)" />
+  </Target>
+</Project>
