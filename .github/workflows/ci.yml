@@ -30,7 +30,8 @@ jobs:
       - name: Restore tools + Cake CI
         run: |
           dotnet tool restore
-          mkdir -p _cake && cd _cake && dotnet cake ../build.cake --target=CI -v diagnostic 2>&1 | tee ../ci-output.txt
+          dotnet tool install -g dotnet-ildasm
+          dotnet cake build.cake --target=CI -v diagnostic 2>&1 | tee ci-output.txt
 
       - name: Show test summary
         if: always()
@@ -79,7 +80,8 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet tool restore
-          mkdir -p _cake && cd _cake && dotnet cake ../build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ../ci-nuget.txt
+          dotnet tool install -g dotnet-ildasm
+          dotnet cake build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ci-nuget.txt
 
       - name: Upload NuGet artifacts
         if: always()

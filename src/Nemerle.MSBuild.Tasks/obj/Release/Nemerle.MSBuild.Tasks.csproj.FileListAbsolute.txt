@@ -1,0 +1,9 @@
+/repo/bin/Release/Nemerle.MSBuild.Tasks.deps.json
+/repo/bin/Release/Nemerle.MSBuild.Tasks.dll
+/repo/bin/Release/Nemerle.MSBuild.Tasks.pdb
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.csproj.AssemblyReference.cache
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.GeneratedMSBuildEditorConfig.editorconfig
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.csproj.CoreCompileInputs.cache
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.sourcelink.json
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.dll
+/repo/src/Nemerle.MSBuild.Tasks/obj/Release/Nemerle.MSBuild.Tasks.pdb

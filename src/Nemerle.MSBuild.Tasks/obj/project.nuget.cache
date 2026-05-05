@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "dgSpecHash": "0gmhSCE8FJc=",
+  "success": true,
+  "projectFilePath": "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj",
+  "expectedPackageFiles": [
+    "/root/.nuget/packages/microsoft.build.framework/17.11.4/microsoft.build.framework.17.11.4.nupkg.sha512",
+    "/root/.nuget/packages/microsoft.build.utilities.core/17.11.4/microsoft.build.utilities.core.17.11.4.nupkg.sha512",
+    "/root/.nuget/packages/microsoft.net.stringtools/17.11.4/microsoft.net.stringtools.17.11.4.nupkg.sha512",
+    "/root/.nuget/packages/microsoft.netcore.platforms/1.1.0/microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "/root/.nuget/packages/microsoft.win32.registry/5.0.0/microsoft.win32.registry.5.0.0.nupkg.sha512",
+    "/root/.nuget/packages/netstandard.library/2.0.3/netstandard.library.2.0.3.nupkg.sha512",
+    "/root/.nuget/packages/system.buffers/4.5.1/system.buffers.4.5.1.nupkg.sha512",
+    "/root/.nuget/packages/system.collections.immutable/8.0.0/system.collections.immutable.8.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.configuration.configurationmanager/8.0.0/system.configuration.configurationmanager.8.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.memory/4.5.5/system.memory.4.5.5.nupkg.sha512",
+    "/root/.nuget/packages/system.numerics.vectors/4.4.0/system.numerics.vectors.4.4.0.nupkg.sha512",
+    "/root/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.security.accesscontrol/5.0.0/system.security.accesscontrol.5.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.security.cryptography.protecteddata/8.0.0/system.security.cryptography.protecteddata.8.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.security.principal.windows/5.0.0/system.security.principal.windows.5.0.0.nupkg.sha512",
+    "/root/.nuget/packages/system.text.encoding.codepages/7.0.0/system.text.encoding.codepages.7.0.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "Package 'Microsoft.Build.Utilities.Core' 17.11.4 has a known high severity vulnerability, https://github.com/advisories/GHSA-w3q9-fxm7-j8fq",
+      "projectPath": "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj",
+      "warningLevel": 1,
+      "filePath": "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj",
+      "libraryId": "Microsoft.Build.Utilities.Core",
+      "targetGraphs": [
+        "netstandard2.0"
+      ]
+    }
+  ]
+}

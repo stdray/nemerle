@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Nemerle.Compiler</id>
+    <version>0.0.1-reanemerle.1+10329</version>
+    <authors>Nemerle Project</authors>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <description>Nemerle compiler, standard library, macros, and MSBuild SDK</description>
+    <repository type="git" commit="026ef9e45dfca3ea52a20fec803b40a03aa7562f" />
+    <dependencies>
+      <group targetFramework=".NETStandard2.0">
+        <dependency id="dnlib" version="4.5.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.dll" target="lib\netstandard2.0\Nemerle.dll" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.Compiler.dll" target="lib\netstandard2.0\Nemerle.Compiler.dll" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.Macros.dll" target="lib\netstandard2.0\Nemerle.Macros.dll" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\dnlib.dll" target="lib\netstandard2.0\dnlib.dll" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.Sdk.props" target="build\Nemerle.Sdk.props" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.Sdk.props" target="buildTransitive\Nemerle.Sdk.props" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.Sdk.targets" target="build\Nemerle.Sdk.targets" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.Sdk.targets" target="buildTransitive\Nemerle.Sdk.targets" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.MSBuild.targets" target="build\Nemerle.MSBuild.targets" />
+    <file src="D:\prj\clones\nemerle\sdk\Nemerle.MSBuild.targets" target="buildTransitive\Nemerle.MSBuild.targets" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Nemerle.MSBuild.Tasks.dll" target="build\Nemerle.MSBuild.Tasks.dll" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.dll" target="tools\net8.0\ncc-core.dll" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.exe" target="tools\net8.0\ncc-core.exe" />
+    <file src="D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.runtimeconfig.json" target="tools\net8.0\ncc-core.runtimeconfig.json" />
+  </files>
+</package>

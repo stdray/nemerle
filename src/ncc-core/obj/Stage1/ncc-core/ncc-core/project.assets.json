@@ -1,0 +1,197 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "dnlib/4.5.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/dnlib.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/dnlib.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "System.CodeDom/4.7.0": {
+        "type": "package",
+        "compile": {
+          "ref/netstandard2.0/System.CodeDom.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.CodeDom.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Nemerle/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.0",
+        "compile": {
+          "bin/placeholder/Nemerle.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Nemerle.dll": {}
+        }
+      },
+      "Nemerle.Compiler/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.0",
+        "dependencies": {
+          "Nemerle": "1.0.0",
+          "System.CodeDom": "4.7.0",
+          "dnlib": "4.5.0"
+        },
+        "compile": {
+          "bin/placeholder/Nemerle.Compiler.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Nemerle.Compiler.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "dnlib/4.5.0": {
+      "sha512": "YkwstIbjyiJ12uGIAN8oSmImgVFkPHit7MJXPHvJqeKV1DMNqxZWszjHfykgiSs4Y/XmjnZts7pI2/AYme5/uA==",
+      "type": "package",
+      "path": "dnlib/4.5.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.txt",
+        "dnlib.4.5.0.nupkg.sha512",
+        "dnlib.nuspec",
+        "lib/net35/dnlib.dll",
+        "lib/net35/dnlib.xml",
+        "lib/net45/dnlib.dll",
+        "lib/net45/dnlib.xml",
+        "lib/net6.0/dnlib.dll",
+        "lib/net6.0/dnlib.xml",
+        "lib/netstandard2.0/dnlib.dll",
+        "lib/netstandard2.0/dnlib.xml"
+      ]
+    },
+    "System.CodeDom/4.7.0": {
+      "sha512": "Hs9pw/kmvH3lXaZ1LFKj3pLQsiGfj2xo3sxSzwiLlRL6UcMZUTeCfoJ9Udalvn3yq5dLlPEZzYegrTQ1/LhPOQ==",
+      "type": "package",
+      "path": "system.codedom/4.7.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/net461/System.CodeDom.dll",
+        "lib/net461/System.CodeDom.xml",
+        "lib/netstandard2.0/System.CodeDom.dll",
+        "lib/netstandard2.0/System.CodeDom.xml",
+        "ref/net461/System.CodeDom.dll",
+        "ref/net461/System.CodeDom.xml",
+        "ref/netstandard2.0/System.CodeDom.dll",
+        "ref/netstandard2.0/System.CodeDom.xml",
+        "system.codedom.4.7.0.nupkg.sha512",
+        "system.codedom.nuspec",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "Nemerle/1.0.0": {
+      "type": "project",
+      "path": "../Nemerle/Nemerle.nproj",
+      "msbuildProject": "../Nemerle/Nemerle.nproj"
+    },
+    "Nemerle.Compiler/1.0.0": {
+      "type": "project",
+      "path": "../Nemerle.Compiler/Nemerle.Compiler.nproj",
+      "msbuildProject": "../Nemerle.Compiler/Nemerle.Compiler.nproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "Nemerle >= 1.0.0",
+      "Nemerle.Compiler >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "/root/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/repo/src/ncc-core/ncc-core.nproj",
+      "projectName": "ncc-core",
+      "projectPath": "/repo/src/ncc-core/ncc-core.nproj",
+      "packagesPath": "/root/.nuget/packages/",
+      "outputPath": "/repo/src/ncc-core/obj/Stage1/ncc-core/ncc-core/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/root/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "/repo/src/Nemerle.Compiler/Nemerle.Compiler.nproj": {
+              "projectPath": "/repo/src/Nemerle.Compiler/Nemerle.Compiler.nproj"
+            },
+            "/repo/src/Nemerle/Nemerle.nproj": {
+              "projectPath": "/repo/src/Nemerle/Nemerle.nproj"
+            }
+          }
+        }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "10.0.200"
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.25, 8.0.25]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.linux-x64",
+            "version": "[8.0.25, 8.0.25]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.25, 8.0.25]"
+          }
+        ],
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.201/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.xml
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.deps.json
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.dll
+D:\prj\clones\nemerle\src\Nemerle\obj\Stage2\Nemerle.Macros\Nemerle.nproj.AssemblyReference.cache
+D:\prj\clones\nemerle\src\Nemerle\obj\Stage2\Nemerle.Macros\Nemerle.nproj.CoreCompileInputs.cache
+D:\prj\clones\nemerle\src\Nemerle\obj\Stage2\Nemerle.Macros\Nemerle.sourcelink.json
+D:\prj\clones\nemerle\src\Nemerle\obj\Stage2\Nemerle.Macros\Nemerle.dll

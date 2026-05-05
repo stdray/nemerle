@@ -1,0 +1,14 @@
+D:/prj/clones/nemerle/bin/Release/Nemerle.xml
+D:/prj/clones/nemerle/bin/Release/Nemerle.deps.json
+D:/prj/clones/nemerle/bin/Release/Nemerle.dll
+D:/prj/clones/nemerle/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.nproj.AssemblyReference.cache
+D:/prj/clones/nemerle/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.nproj.CoreCompileInputs.cache
+D:/prj/clones/nemerle/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.sourcelink.json
+D:/prj/clones/nemerle/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.dll
+/repo/bin/Release/Nemerle.xml
+/repo/bin/Release/Nemerle.deps.json
+/repo/bin/Release/Nemerle.dll
+/repo/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.nproj.AssemblyReference.cache
+/repo/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.nproj.CoreCompileInputs.cache
+/repo/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.sourcelink.json
+/repo/src/Nemerle/obj/Stage1/Nemerle.Compiler/Nemerle.dll

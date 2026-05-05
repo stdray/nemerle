@@ -1,0 +1,8 @@
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.Macros.xml
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.Macros.deps.json
+D:\prj\clones\nemerle\bin\Release\Stage2\Nemerle.Macros.dll
+D:\prj\clones\nemerle\src\Nemerle.Macros\obj\Stage2\Nemerle.Macros\Nemerle.Macros.nproj.AssemblyReference.cache
+D:\prj\clones\nemerle\src\Nemerle.Macros\obj\Stage2\Nemerle.Macros\Nemerle.Macros.nproj.CoreCompileInputs.cache
+D:\prj\clones\nemerle\src\Nemerle.Macros\obj\Stage2\Nemerle.Macros\Nemerle.Macros.sourcelink.json
+D:\prj\clones\nemerle\src\Nemerle.Macros\obj\Stage2\Nemerle.Macros\Nemerle..685AA59F.Up2Date
+D:\prj\clones\nemerle\src\Nemerle.Macros\obj\Stage2\Nemerle.Macros\Nemerle.Macros.dll

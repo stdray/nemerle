@@ -1,0 +1,78 @@
+{
+  "format": 1,
+  "restore": {
+    "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj": {}
+  },
+  "projects": {
+    "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj",
+        "projectName": "Nemerle.MSBuild.Tasks",
+        "projectPath": "/repo/src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/repo/src/Nemerle.MSBuild.Tasks/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/root/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.0": {
+            "targetAlias": "netstandard2.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.200"
+      },
+      "frameworks": {
+        "netstandard2.0": {
+          "targetAlias": "netstandard2.0",
+          "dependencies": {
+            "Microsoft.Build.Framework": {
+              "target": "Package",
+              "version": "[17.11.4, )"
+            },
+            "Microsoft.Build.Utilities.Core": {
+              "target": "Package",
+              "version": "[17.11.4, )"
+            },
+            "NETStandard.Library": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[2.0.3, )",
+              "autoReferenced": true
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.201/RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

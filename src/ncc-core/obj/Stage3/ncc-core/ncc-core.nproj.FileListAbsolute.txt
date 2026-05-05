@@ -1,0 +1,11 @@
+D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.exe
+D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.xml
+D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.deps.json
+D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.runtimeconfig.json
+D:\prj\clones\nemerle\bin\Release\Stage3\ncc-core.dll
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.nproj.AssemblyReference.cache
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.nproj.CoreCompileInputs.cache
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.sourcelink.json
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.nproj.Up2Date
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.dll
+D:\prj\clones\nemerle\src\ncc-core\obj\Stage3\ncc-core\ncc-core.genruntimeconfig.cache
