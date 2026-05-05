@@ -29,9 +29,13 @@ public class NemerleLanguageServer
         _handlers["textDocument/completion"] = HandleCompletionAsync;
         _handlers["textDocument/hover"] = HandleHoverAsync;
         _handlers["textDocument/definition"] = HandleDefinitionAsync;
+        _handlers["textDocument/signatureHelp"] = HandleSignatureHelpAsync;
+        _handlers["textDocument/references"] = HandleReferencesAsync;
+        _handlers["textDocument/semanticTokens/full"] = HandleSemanticTokensAsync;
         _handlers["textDocument/documentSymbol"] = HandleDocumentSymbolAsync;
         _handlers["nemerle/compile"] = HandleCompileAsync;
         _handlers["nemerle/compileRun"] = HandleCompileRunAsync;
+        _handlers["nemerle/macroExpand"] = HandleMacroExpandAsync;
         _handlers["shutdown"] = HandleShutdownAsync;
         _handlers["exit"] = HandleExitAsync;
     }
@@ -209,6 +213,27 @@ public class NemerleLanguageServer
         await _transport.SendResponseAsync(request.Id, result, ct);
     }
 
+    private async Task HandleSignatureHelpAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<SignatureHelpParams>(_jsonOpts)!;
+        var result = await _state.GetSignatureHelpAsync(p.TextDocument.Uri, p.Position);
+        await _transport.SendResponseAsync(request.Id, result, ct);
+    }
+
+    private async Task HandleReferencesAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<ReferenceParams>(_jsonOpts)!;
+        var refs = await _state.GetReferencesAsync(p.TextDocument.Uri, p.Position);
+        await _transport.SendResponseAsync(request.Id, refs.ToArray(), ct);
+    }
+
+    private async Task HandleSemanticTokensAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<SemanticTokensParams>(_jsonOpts)!;
+        var tokens = await _state.GetSemanticTokensAsync(p.TextDocument.Uri);
+        await _transport.SendResponseAsync(request.Id, new { data = tokens }, ct);
+    }
+
     private async Task HandleCompileAsync(LspRequest request, CancellationToken ct)
     {
         var p = ((JsonElement)request.Params!).Deserialize<CompileParams>(_jsonOpts)!;
@@ -236,6 +261,31 @@ public class NemerleLanguageServer
             output = success ? "Compilation successful" : $"Compilation failed with {errors.Count} error(s)",
             errorCount = errors.Count
         }, ct);
+    }
+
+    private async Task HandleMacroExpandAsync(LspRequest request, CancellationToken ct)
+    {
+        var p = ((JsonElement)request.Params!).Deserialize<CompileParams>(_jsonOpts)!;
+        var lines = p.TextDocument.Uri.Split('?');
+        string? expanded = null;
+        if (lines.Length > 1)
+        {
+            var qs = System.Web.HttpUtility.ParseQueryString(lines[1]);
+            if (int.TryParse(qs["line"], out var line) && int.TryParse(qs["col"], out var col))
+            {
+                var doc = _state.GetDocumentByUri(p.TextDocument.Uri.Split('?')[0]);
+                if (doc != null)
+                {
+                    var hint = _state.GetHoverRaw(doc.Uri, new Position(line, col));
+                    // Extract expanded text from hint XML
+                    var m = System.Text.RegularExpressions.Regex.Match(hint ?? "",
+                        @"<hint\s+value\s*=\s*'After expanding[^']*'\s*>\s*<code>\s*<pre>(.*?)</pre>",
+                        System.Text.RegularExpressions.RegexOptions.Singleline);
+                    expanded = m.Success ? m.Groups[1].Value : (hint ?? "");
+                }
+            }
+        }
+        await _transport.SendResponseAsync(request.Id, new { text = expanded ?? "" }, ct);
     }
 
     private async Task HandleCompileRunAsync(LspRequest request, CancellationToken ct)

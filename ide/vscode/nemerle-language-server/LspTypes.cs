@@ -66,6 +66,12 @@ public record DocumentSymbolParams(TextDocumentIdentifier TextDocument);
 
 public record CompileParams(TextDocumentIdentifier TextDocument);
 
+public record SignatureHelpParams(TextDocumentIdentifier TextDocument, Position Position);
+
+public record ReferenceParams(TextDocumentIdentifier TextDocument, Position Position);
+
+public record SemanticTokensParams(TextDocumentIdentifier TextDocument);
+
 public record InitializeParams
 {
     public int? ProcessId { get; init; }

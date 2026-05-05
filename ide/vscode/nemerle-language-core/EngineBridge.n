@@ -110,6 +110,27 @@ namespace Nemerle.Completion2
       catch { _ => "" }
     }
 
+    public GetMethodTip(uri : string, line : int, col : int) : MethodTipInfo
+    {
+      unless (_ready) null;
+
+      def src = FindSource(uri);
+      when (src == null) null;
+
+      def snap = src.GetSourceSnapshot();
+      def lc = LineColumn(line + 1, col + 1);
+      def pos = snap.LineColumnToPosition(lc);
+      def location = Location(snap, pos);
+
+      try
+      {
+        def request = _engine.BeginGetMethodTipInfo(src, location);
+        _ = request.AsyncWaitHandle.WaitOne(5000);
+        request.MethodTipInfo
+      }
+      catch { _ => null }
+    }
+
     public GetFileUri(fileIndex : int) : string
     {
       if (_ready)

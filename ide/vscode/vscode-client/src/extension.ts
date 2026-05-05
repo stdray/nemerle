@@ -2,7 +2,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import {
-    ExtensionContext, workspace, window, commands, OutputChannel
+    ExtensionContext, workspace, window, commands, Uri, OutputChannel,
+    TextDocumentContentProvider, EventEmitter, Event, TextDocumentChangeEvent,
+    ViewColumn
 } from 'vscode';
 import {
     LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, Executable
@@ -10,6 +12,24 @@ import {
 
 let client: LanguageClient | null = null;
 let outputChannel: OutputChannel;
+
+class NemerleMacroContentProvider implements TextDocumentContentProvider {
+    private _onDidChange = new EventEmitter<Uri>();
+    get onDidChange(): Event<Uri> { return this._onDidChange.event; }
+
+    private _expansions = new Map<string, string>();
+
+    provideTextDocumentContent(uri: Uri): string {
+        return this._expansions.get(uri.toString()) ?? '// No expansion available';
+    }
+
+    setExpansion(uri: Uri, text: string) {
+        this._expansions.set(uri.toString(), text);
+        this._onDidChange.fire(uri);
+    }
+}
+
+let macroProvider: NemerleMacroContentProvider;
 
 export function activate(context: ExtensionContext) {
     outputChannel = window.createOutputChannel('Nemerle Language Server');
@@ -63,6 +83,12 @@ export function activate(context: ExtensionContext) {
         outputChannel.appendLine('Nemerle language server ready');
     });
 
+    // Register Virtual Document provider for macro expansion
+    macroProvider = new NemerleMacroContentProvider();
+    const disposable = workspace.registerTextDocumentContentProvider('nemerle-macro', macroProvider);
+
+    context.subscriptions.push(disposable);
+
     // Register compile commands
     context.subscriptions.push(
         commands.registerCommand('nemerle.compile', async () => {
@@ -95,6 +121,20 @@ export function activate(context: ExtensionContext) {
             outputChannel.appendLine((result as any).output);
             if ((result as any).success) void window.showInformationMessage('Run successful');
             else void window.showErrorMessage('Run failed');
+        }),
+        commands.registerCommand('nemerle.expandMacro', async (params: { line: number; col: number }) => {
+            const editor = window.activeTextEditor;
+            if (!editor || !client) return;
+            const uri = editor.document.uri.toString();
+            const query = `${uri}?line=${params.line}&col=${params.col}`;
+            const result = await client.sendRequest('nemerle/macroExpand', {
+                textDocument: { uri: query }
+            });
+            const text = (result as any).text || '// No expansion';
+            const vscUri = Uri.parse(`nemerle-macro://expand/${params.line}_${params.col}.n`);
+            macroProvider.setExpansion(vscUri, text);
+            const doc = await workspace.openTextDocument(vscUri);
+            await window.showTextDocument(doc, ViewColumn.Beside);
         })
     );
 }

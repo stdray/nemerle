@@ -58,6 +58,11 @@
     "commands": [
       { "command": "nemerle.compile", "title": "Compile current file", "category": "Nemerle" },
       { "command": "nemerle.compileRun", "title": "Compile and Run current file", "category": "Nemerle" }
+    ],
+    "keybindings": [
+      { "command": "nemerle.compile", "key": "ctrl+shift+b", "when": "editorLangId == nemerle" },
+      { "command": "nemerle.compileRun", "key": "f5", "when": "editorLangId == nemerle" },
+      { "command": "nemerle.compileRun", "key": "ctrl+f5", "when": "editorLangId == nemerle" }
     ]
   },
   "scripts": {

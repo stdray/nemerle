@@ -268,6 +268,66 @@ public class ServerState
             _ => CompletionItemKind.Text
         };
     }
+
+    public string? GetHoverRaw(string uri, Position position)
+    {
+        var doc = GetDocument(uri);
+        if (doc == null || _engineBridge?.Ready != true) return null;
+        try { return _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character); }
+        catch { return null; }
+    }
+
+    public Task<object?> GetSignatureHelpAsync(string uri, Position position)
+    {
+        try
+        {
+            if (_engineBridge?.Ready == true)
+            {
+                var tip = _engineBridge.GetMethodTip(uri, (int)position.Line, (int)position.Character);
+                if (tip != null && tip.HasTip)
+                {
+                    var sigs = new List<object>();
+                    var count = tip.GetCount();
+                    for (int i = 0; i < count; i++)
+                    {
+                        var parms = new List<object>();
+                        var paramCount = tip.GetParameterCount(i);
+                        for (int p = 0; p < paramCount; p++)
+                        {
+                            parms.Add(new { label = $"param{p + 1}", documentation = (string?)null });
+                        }
+                        sigs.Add(new
+                        {
+                            label = $"{tip.GetName(i)}({tip.GetDescription(i) ?? tip.GetType(i)})",
+                            documentation = tip.GetDescription(i) ?? tip.GetType(i),
+                            parameters = parms.ToArray()
+                        });
+                    }
+                    return Task.FromResult<object?>(new
+                    {
+                        signatures = sigs.ToArray(),
+                        activeSignature = tip.DefaultMethod,
+                        activeParameter = tip.ParameterIndex
+                    });
+                }
+            }
+        }
+        catch { }
+        return Task.FromResult<object?>(null);
+    }
+
+    public Task<List<Location>> GetReferencesAsync(string uri, Position position)
+    {
+        // Stub — needs Engine.FindAllSymbols() with full workspace
+        return Task.FromResult(new List<Location>());
+    }
+
+    public Task<List<int>> GetSemanticTokensAsync(string uri)
+    {
+        // Stub — needs SyntaxClassifier/TypeClassifier/UsageClassifier from VS integration
+        // Token format: [line, startChar, length, tokenType, tokenModifiers]
+        return Task.FromResult(new List<int>());
+    }
 }
 
 public record OpenDocument(string Uri, string Text, int Version);
