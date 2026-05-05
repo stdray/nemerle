@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import {
-    ExtensionContext, workspace, window, OutputChannel
+    ExtensionContext, workspace, window, commands, OutputChannel
 } from 'vscode';
 import {
     LanguageClient, LanguageClientOptions, ServerOptions, TransportKind, Executable
@@ -62,6 +62,41 @@ export function activate(context: ExtensionContext) {
     client.start().then(() => {
         outputChannel.appendLine('Nemerle language server ready');
     });
+
+    // Register compile commands
+    context.subscriptions.push(
+        commands.registerCommand('nemerle.compile', async () => {
+            const editor = window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'nemerle') {
+                void window.showWarningMessage('No Nemerle file open');
+                return;
+            }
+            if (!client) return;
+            const result = await client.sendRequest('nemerle/compile', {
+                textDocument: { uri: editor.document.uri.toString() }
+            });
+            outputChannel.show();
+            outputChannel.appendLine((result as any).output);
+            const success = (result as any).success;
+            if (success) void window.showInformationMessage('Compilation successful');
+            else void window.showErrorMessage(`Compilation failed with ${(result as any).errorCount} error(s)`);
+        }),
+        commands.registerCommand('nemerle.compileRun', async () => {
+            const editor = window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'nemerle') {
+                void window.showWarningMessage('No Nemerle file open');
+                return;
+            }
+            if (!client) return;
+            const result = await client.sendRequest('nemerle/compileRun', {
+                textDocument: { uri: editor.document.uri.toString() }
+            });
+            outputChannel.show();
+            outputChannel.appendLine((result as any).output);
+            if ((result as any).success) void window.showInformationMessage('Run successful');
+            else void window.showErrorMessage('Run failed');
+        })
+    );
 }
 
 export function deactivate(): Thenable<void> | undefined {

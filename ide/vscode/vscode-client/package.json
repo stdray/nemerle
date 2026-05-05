@@ -54,7 +54,11 @@
           "description": "Traces communication between VSCode and the language server."
         }
       }
-    }
+    },
+    "commands": [
+      { "command": "nemerle.compile", "title": "Compile current file", "category": "Nemerle" },
+      { "command": "nemerle.compileRun", "title": "Compile and Run current file", "category": "Nemerle" }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "bun compile",
