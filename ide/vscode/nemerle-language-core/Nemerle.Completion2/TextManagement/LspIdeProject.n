@@ -58,6 +58,15 @@ namespace Nemerle.Completion2
       }
     }
 
+    public FindByUri(uri : string) : LspIdeSource
+    {
+      match (TryFindSource(uri))
+      {
+        | Some(src) => src
+        | None => throw InvalidOperationException($"Source not found: $uri")
+      }
+    }
+
     // IIdeProject implementation
     public GetAssemblyReferences() : IEnumerable[string] { _assemblyRefs :> IEnumerable[string] }
     public GetMacroAssemblyReferences() : IEnumerable[string] { List() :> IEnumerable[string] }

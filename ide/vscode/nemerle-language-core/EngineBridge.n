@@ -1,0 +1,88 @@
+using Nemerle.Compiler;
+using Nemerle.Completion2;
+using Nemerle.Compiler.Utils.Async;
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+namespace Nemerle.Completion2
+{
+  /// Bridges the IIdeEngine (from VS integration) to LSP server.
+  /// Provides synchronous API for completion via the real compiler engine.
+  public class EngineBridge
+  {
+    private mutable _engine   : Engine;
+    private mutable _project  : LspIdeProject;
+    private mutable _ready    : bool;
+
+    public Ready : bool { get { _ready } }
+    public Project : LspIdeProject { get { _project } }
+
+    public Initialize(project : LspIdeProject) : void
+    {
+      _project = project;
+      _engine = Engine(_project, TextWriter.Null, false);
+      _ready = true;
+    }
+
+    public AddOrUpdateDocument(uri : string, text : string, version : int) : void
+    {
+      when (_ready)
+      {
+        def idx = _project.AddOrUpdateSource(uri, text, version);
+        def src = _project.GetSource(idx) :> IIdeSource;
+        _ = _engine.BeginUpdateCompileUnit(src, null);
+      }
+    }
+
+    public RemoveDocument(uri : string) : void
+    {
+      when (_ready)
+      {
+        try
+        {
+          def src = _project.FindByUri(uri);
+          _project.RemoveSource(uri);
+          _engine.NotifySourceDeleted(src.FileIndex)
+        }
+        catch { _ => () }
+      }
+    }
+
+    public Complete(uri : string, line : int, col : int) : array[CompletionElem]
+    {
+      unless (_ready) array(0);
+
+      def src = FindSource(uri);
+      when (src == null) array(0);
+
+      def snap = src.GetSourceSnapshot();
+      def lc = LineColumn(line + 1, col + 1);
+      def pos = snap.LineColumnToPosition(lc);
+      def location = Location(snap, pos);
+
+      try
+      {
+        def request = _engine.Completion(src, location, false);
+        request.CompletionResult.CompletionList
+      }
+      catch { _ => array(0) }
+    }
+
+    public Shutdown() : void
+    {
+      when (_ready)
+      {
+        _ready = false;
+        _engine.Close()
+      }
+    }
+
+    private FindSource(uri : string) : IIdeSource
+    {
+      try { _project.FindByUri(uri) :> IIdeSource }
+      catch { _ => null }
+    }
+  }
+}
