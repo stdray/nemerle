@@ -132,9 +132,11 @@ Task("BuildTasks")
         try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
         return;
     }
+    var srcDll = "src/Nemerle.MSBuild.Tasks/bin/Release/Nemerle.MSBuild.Tasks.dll";
     DotNetBuild("src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
         MSBuildSettings = new DotNetMSBuildSettings().SetConfiguration(configuration)
     });
+    try { CopyFile(srcDll, dllPath); } catch {}
     try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
 });
 
