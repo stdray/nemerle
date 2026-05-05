@@ -10,12 +10,26 @@ foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macr
         try { System.Reflection.Assembly.LoadFrom(path); } catch { }
 }
 
-// Configure logging to file
+// Configure logging to file + Seq
 var logDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
 Directory.CreateDirectory(logDir);
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.File(Path.Combine(logDir, "server.log"), rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+
+var loggerConfig = new LoggerConfiguration()
+    .WriteTo.File(Path.Combine(logDir, "server.log"), rollingInterval: RollingInterval.Day);
+
+// YobaLog Seq-compatible server (env vars or defaults)
+var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL") 
+    ?? "http://yobalog.3po.su/compat/seq";
+var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY") 
+    ?? "wE7zqtHYoEqsC0AjiXD75A";
+
+try
+{
+    loggerConfig = loggerConfig.WriteTo.Seq(seqUrl, apiKey: seqKey);
+}
+catch { /* Seq unavailable — continue with file-only logging */ }
+
+Log.Logger = loggerConfig.CreateLogger();
 
 Log.Information("Nemerle Language Server starting");
 
