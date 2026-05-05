@@ -104,3 +104,10 @@ ide/vscode/nemerle-language-server/bin/
 ide/vscode/nemerle-language-server/obj/
 ide/vscode/nemerle-language-core/bin/
 ide/vscode/nemerle-language-core/obj/
+# NuGet package artifacts
+artifacts/
+# Cake dotnet tool cache (gitversion, ildasm, etc.)
+tools/.store/
+tools/dotnet-*.exe
+# Opencode workspace
+.opencode/

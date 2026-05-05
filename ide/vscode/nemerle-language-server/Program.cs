@@ -1,5 +1,6 @@
+using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
-using Serilog;
+using Seq.Extensions.Logging;
 
 // Preload Nemerle assemblies so the compiler can find them
 var compilerDir = Path.GetDirectoryName(typeof(Nemerle.Compiler.ManagerClass).Assembly.Location)!;
@@ -10,31 +11,26 @@ foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macr
         try { System.Reflection.Assembly.LoadFrom(path); } catch { }
 }
 
-// Configure logging to file + Seq
-var logDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
-Directory.CreateDirectory(logDir);
-
-var loggerConfig = new LoggerConfiguration()
-    .WriteTo.File(Path.Combine(logDir, "server.log"), rollingInterval: RollingInterval.Day);
-
-// YobaLog Seq-compatible server (env vars or defaults)
-var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL") 
+// Configure logging: Debug (stdout via Debug.WriteLine) + Seq
+var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL")
     ?? "http://yobalog.3po.su/compat/seq";
-var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY") 
+var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY")
     ?? "wE7zqtHYoEqsC0AjiXD75A";
 
-try
+using var loggerFactory = LoggerFactory.Create(builder =>
 {
-    loggerConfig = loggerConfig.WriteTo.Seq(seqUrl, apiKey: seqKey);
-}
-catch { /* Seq unavailable — continue with file-only logging */ }
+    builder.AddDebug();
+    builder.SetMinimumLevel(LogLevel.Debug);
 
-Log.Logger = loggerConfig.CreateLogger();
+    if (!string.IsNullOrWhiteSpace(seqUrl))
+        builder.AddSeq(serverUrl: seqUrl, apiKey: seqKey);
+});
 
-Log.Information("Nemerle Language Server starting");
+var logger = loggerFactory.CreateLogger("Program");
+logger.LogInformation("Nemerle Language Server starting");
 
 using var transport = new LspTransport(Console.OpenStandardInput(), Console.OpenStandardOutput());
-var server = new NemerleLanguageServer(transport, Log.Logger);
+var server = new NemerleLanguageServer(transport, loggerFactory);
 
 try
 {
@@ -42,12 +38,8 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Server crashed");
+    logger.LogCritical(ex, "Server crashed");
     return 1;
-}
-finally
-{
-    Log.CloseAndFlush();
 }
 
 return 0;

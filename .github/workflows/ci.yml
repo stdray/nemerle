@@ -3,9 +3,13 @@ name: CI
 on:
   push:
     branches: [retarget-compiler]
+    tags: ['nuget']
   pull_request:
     branches: [retarget-compiler]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -49,3 +53,51 @@ jobs:
         with:
           name: ci-output
           path: ci-output.txt
+
+  nuget-publish:
+    if: github.event_name == 'push' && github.ref == 'refs/tags/nuget'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.nproj', 'Nemerle.Compiler.Package.csproj') }}
+
+      - name: Install tools
+        run: |
+          dotnet tool install -g Cake.Tool
+          dotnet tool install -g dotnet-ildasm
+
+      - name: Publish NuGet package (Stage3 → Validate → Pack → Push)
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet-cake build.cake --target=NuGetPush --configuration=Release -v diagnostic 2>&1 | tee ci-nuget.txt
+
+      - name: Upload NuGet artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-log
+          path: ci-nuget.txt

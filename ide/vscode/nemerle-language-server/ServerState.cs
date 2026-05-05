@@ -19,7 +19,7 @@ public class ServerState
     public ServerState(ILogger<ServerState> logger)
     {
         _logger = logger;
-        _engine = new EngineHost();
+        _engine = new EngineHost(logger: _logger);
         _completionEngine = new CompletionEngine();
         _analysisEngine = new AnalysisEngine();
     }
@@ -37,6 +37,7 @@ public class ServerState
     public void SetWorkspaceRoot(string? rootUri)
     {
         var refs = new List<string>();
+        var macroRefsList = new List<string>();
         if (rootUri != null && rootUri.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
         {
             try
@@ -55,7 +56,11 @@ public class ServerState
                             {
                                 var info = NprojLoader.Load(nproj);
                                 refs.AddRange(NprojLoader.ResolveReferences(info));
-                                _logger.LogInformation("Loaded .nproj: {Path}", nproj);
+                                var (projRefs, macroRefs) = NprojLoader.ResolveProjectReferences(info);
+                                refs.AddRange(projRefs);
+                                macroRefsList.AddRange(macroRefs);
+                                _logger.LogInformation("Loaded .nproj: {Path} (+{ProjRefs} project refs, +{MacroRefs} macro refs)",
+                                    nproj, projRefs.Count, macroRefs.Count);
                             }
                             catch (Exception ex) { _logger.LogWarning(ex, "Failed to load .nproj: {Path}", nproj); }
                         }
@@ -65,7 +70,7 @@ public class ServerState
             catch (Exception ex) { _logger.LogError(ex, "SetWorkspaceRoot failed"); }
         }
 
-        _engine = new EngineHost(refs);
+        _engine = new EngineHost(refs, _logger);
 
         if (_engineBridge == null)
         {
@@ -75,6 +80,9 @@ public class ServerState
                 foreach (var r in refs)
                     if (File.Exists(r))
                         _ideProject.AddAssemblyRef(r);
+                foreach (var r in macroRefsList)
+                    if (File.Exists(r))
+                        _ideProject.AddMacroAssemblyRef(r);
                 _engineBridge = new Nemerle.Completion2.EngineBridge();
                 _engineBridge.Initialize(_ideProject);
                 _logger.LogInformation("EngineBridge initialized successfully");
@@ -163,7 +171,8 @@ public class ServerState
 
     public Task<Hover?> GetHoverAsync(string uri, Position position)
     {
-        _logger.LogDebug("Hover requested: {Uri} ({Line},{Col})", uri, position.Line, position.Character);
+        _logger.LogDebug("Hover requested: {Uri} ({Line},{Col}) ready={Ready}", 
+            uri, position.Line, position.Character, _engineBridge?.Ready);
 
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);

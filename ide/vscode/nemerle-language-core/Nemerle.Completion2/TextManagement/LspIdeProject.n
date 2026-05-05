@@ -13,6 +13,7 @@ namespace Nemerle.Completion2
   public class LspIdeProject : IIdeProject
   {
     _assemblyRefs  : List[string]  = List();
+    _macroAssemblyRefs : List[string] = List();
     _sources       : Hashtable[int, LspIdeSource] = Hashtable();
     mutable _nextFileIndex : int = 1;
 
@@ -24,6 +25,12 @@ namespace Nemerle.Completion2
     {
       unless (_assemblyRefs.Contains(path))
         _assemblyRefs.Add(path)
+    }
+
+    public AddMacroAssemblyRef(path : string) : void
+    {
+      unless (_macroAssemblyRefs.Contains(path))
+        _macroAssemblyRefs.Add(path)
     }
 
     TryFindSource(uri : string) : option[LspIdeSource]
@@ -69,7 +76,7 @@ namespace Nemerle.Completion2
 
     // IIdeProject implementation
     public GetAssemblyReferences() : IEnumerable[string] { _assemblyRefs :> IEnumerable[string] }
-    public GetMacroAssemblyReferences() : IEnumerable[string] { List() :> IEnumerable[string] }
+    public GetMacroAssemblyReferences() : IEnumerable[string] { _macroAssemblyRefs :> IEnumerable[string] }
 
     public GetOptions() : CompilationOptions
     {

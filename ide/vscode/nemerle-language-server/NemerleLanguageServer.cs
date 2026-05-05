@@ -10,12 +10,11 @@ public class NemerleLanguageServer
     private readonly ServerState _state;
     private readonly Dictionary<string, Func<LspRequest, CancellationToken, Task>> _handlers = new();
 
-    public NemerleLanguageServer(LspTransport transport, Serilog.ILogger serilogLogger)
+    public NemerleLanguageServer(LspTransport transport, ILoggerFactory loggerFactory)
     {
         _transport = transport;
-        var factory = new SerilogLoggerFactory(serilogLogger);
-        _logger = factory.CreateLogger("NemerleLanguageServer");
-        _state = new ServerState(factory.CreateLogger<ServerState>());
+        _logger = loggerFactory.CreateLogger("NemerleLanguageServer");
+        _state = new ServerState(loggerFactory.CreateLogger<ServerState>());
 
         RegisterHandlers();
     }
@@ -184,10 +183,7 @@ public class NemerleLanguageServer
 
     private async Task HandleHoverAsync(LspRequest request, CancellationToken ct)
     {
-        // Unconditional log
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp", "hover-entry.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} HandleHoverAsync called id={request.Id}\n");
+        _logger.LogDebug("Hover called id={Id}", request.Id);
         var p = ((JsonElement)request.Params!).Deserialize<HoverParams>(_jsonOpts)!;
         var hover = await _state.GetHoverAsync(p.TextDocument.Uri, p.Position);
         await _transport.SendResponseAsync(request.Id, hover, ct);
@@ -427,45 +423,4 @@ public class NemerleLanguageServer
     };
 }
 
-/// <summary>
-/// Bridges Serilog to Microsoft.Extensions.Logging.ILogger.
-/// </summary>
-public class SerilogLoggerFactory : ILoggerFactory
-{
-    private readonly Serilog.ILogger _serilog;
-
-    public SerilogLoggerFactory(Serilog.ILogger serilog) { _serilog = serilog; }
-
-    public void AddProvider(ILoggerProvider provider) { }
-    public Microsoft.Extensions.Logging.ILogger CreateLogger(string categoryName)
-        => new SerilogLogger(_serilog.ForContext("SourceContext", categoryName));
-
-    public void Dispose() { }
-}
-
-public class SerilogLogger : Microsoft.Extensions.Logging.ILogger
-{
-    private readonly Serilog.ILogger _logger;
-    public SerilogLogger(Serilog.ILogger logger) { _logger = logger; }
-
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-    public bool IsEnabled(LogLevel logLevel) => true;
-
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-        Func<TState, Exception?, string> formatter)
-    {
-        var level = logLevel switch
-        {
-            LogLevel.Trace => Serilog.Events.LogEventLevel.Verbose,
-            LogLevel.Debug => Serilog.Events.LogEventLevel.Debug,
-            LogLevel.Information => Serilog.Events.LogEventLevel.Information,
-            LogLevel.Warning => Serilog.Events.LogEventLevel.Warning,
-            LogLevel.Error => Serilog.Events.LogEventLevel.Error,
-            LogLevel.Critical => Serilog.Events.LogEventLevel.Fatal,
-            _ => Serilog.Events.LogEventLevel.Information
-        };
-        _logger.Write(level, exception, formatter(state, exception));
-    }
-}
 

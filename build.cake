@@ -1,3 +1,5 @@
+#tool dotnet:?package=GitVersion.Tool&version=6.4.0
+
 //////////////////////////////////////////////////////////////////////
 // ARGUMENTS
 //////////////////////////////////////////////////////////////////////
@@ -30,6 +32,8 @@ string RuntimeConfig(string version, string rollForward) => $@"{{
 var AllCompilerProjects = new[] {
     "Nemerle.nproj", "Nemerle.Compiler.nproj", "Nemerle.Macros.nproj", "ncc-core.nproj"
 };
+
+GitVersion gitVersion = null;
 
 //////////////////////////////////////////////////////////////////////
 // HELPERS
@@ -80,6 +84,19 @@ string GetBootFrameworkVersion() {
 //////////////////////////////////////////////////////////////////////
 // TASKS
 //////////////////////////////////////////////////////////////////////
+
+Task("Version")
+    .Does(() =>
+{
+    gitVersion = GitVersion(new GitVersionSettings
+    {
+        OutputType = GitVersionOutput.Json,
+        NoFetch = true
+    });
+    Information("GitVersion FullSemVer: {0}", gitVersion.FullSemVer);
+    Information("GitVersion ShortSha:   {0}", gitVersion.ShortSha);
+    Information("GitVersion CommitDate: {0}", gitVersion.CommitDate);
+});
 
 Task("Clean")
     .Does(() =>
@@ -215,6 +232,73 @@ Task("Stage3")
     if (FileExists($"{stage2Out}/ncc-core.exe"))
         CopyFile($"{stage2Out}/ncc-core.exe", $"{stage3Out}/ncc-core.exe");
     Information("=== Stage 3 complete! ===");
+});
+
+Task("PackNemerle")
+    .IsDependentOn("Stage3")
+    .IsDependentOn("Version")
+    .Does(() =>
+{
+    Information("=== PACKING Nemerle.Compiler NuGet ===");
+    var buildVersion = gitVersion.FullSemVer;
+    var absStage3 = System.IO.Path.GetFullPath(stage3Out).Replace('\\', '/');
+    var absTasks  = System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/'); // MSBuild.Tasks.dll is in stage1Out
+    var absRepo   = System.IO.Path.GetFullPath(".").Replace('\\', '/');
+
+    // Ensure ncc-core runtimeconfig exists
+    WriteRuntimeConfig($"{stage3Out}/ncc-core.runtimeconfig.json", "8.0", "LatestMajor");
+
+    var packageProject = "Nemerle.Compiler.Package.csproj";
+
+    var ms = new DotNetMSBuildSettings()
+        .SetConfiguration(configuration)
+        .WithProperty("Version", buildVersion)
+        .WithProperty("InformationalVersion", $"{buildVersion} ({gitVersion.ShortSha}, {gitVersion.CommitDate})")
+        .WithProperty("Stage3Dir", absStage3 + "/")
+        .WithProperty("RepoRoot", absRepo + "/")
+        .WithProperty("MSBuildTaskOutput", absTasks + "/");
+
+    EnsureDirectoryExists("./artifacts");
+
+    DotNetRestore(packageProject, new DotNetRestoreSettings {
+        ArgumentCustomization = a => a
+            .Append($"/p:Stage3Dir={absStage3}/")
+            .Append($"/p:RepoRoot={absRepo}/")
+            .Append($"/p:MSBuildTaskOutput={absTasks}/")
+    });
+
+    DotNetPack(packageProject, new DotNetPackSettings {
+        Configuration = configuration,
+        OutputDirectory = "./artifacts",
+        NoRestore = true,
+        NoBuild = true,
+        IncludeSource = false,
+        IncludeSymbols = false,
+        MSBuildSettings = ms
+    });
+
+    Information("=== Packed Nemerle.Compiler {0} -> artifacts/ ===", buildVersion);
+});
+
+Task("NuGetPush")
+    .IsDependentOn("PackNemerle")
+    .IsDependentOn("Validate")
+    .Does(() =>
+{
+    Information("=== NuGetPush: VALIDATED + PACKED — PUSHING ===");
+    var apiKey = EnvironmentVariable("NUGET_API_KEY");
+    if (string.IsNullOrWhiteSpace(apiKey))
+        throw new Exception("NUGET_API_KEY environment variable is not set. Use 'nuget.org/account/apikeys' to create one.");
+
+    var packages = GetFiles("./artifacts/Nemerle.Compiler.*.nupkg");
+    foreach (var pkg in packages)
+    {
+        DotNetNuGetPush(pkg, new DotNetNuGetPushSettings {
+            Source = "https://api.nuget.org/v3/index.json",
+            ApiKey = apiKey
+        });
+        Information("Published {0}", pkg.GetFilename());
+    }
 });
 
 Task("Validate")
@@ -459,6 +543,19 @@ Task("BuildVscode")
     // Copy dependencies from boot-dnlib and language-core output
     foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll" })
         CopyFile($"{nccBoot}/{dll}", $"{testOut}/Vscode/{dll}");
+
+    // Build VscodeTestLib + VscodeTestMacro (for LSP project reference resolution testing)
+    // Stage1 compiler required — boot compiler ICEs on MatchFailureException.
+    // Do NOT override OutputPath — ResolveProjectReferences expects bin\Release\*.dll.
+    foreach (var proj in new[] { "snippets/VscodeTest/VscodeTestLib/VscodeTestLib.nproj", "snippets/VscodeTest/VscodeTestMacro/VscodeTestMacro.nproj" })
+    {
+        DotNetBuild(proj, new DotNetBuildSettings {
+            Configuration = configuration,
+            MSBuildSettings = new DotNetMSBuildSettings()
+                .SetConfiguration(configuration)
+                .WithProperty("Nemerle", absS1Out)
+        });
+    }
 
     WriteRuntimeConfig($"{testOut}/Vscode/nemerle-language-server.runtimeconfig.json", "8.0", "LatestMajor");
     Information("=== VSCODE LANGUAGE SERVER BUILT ===");

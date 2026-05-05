@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 
 namespace Nemerle.LanguageServer.Tests.Infrastructure;
 
@@ -32,7 +33,8 @@ public class ServerHarness : IAsyncDisposable
             {
                 // server reads from serverReadPipe, writes to serverWritePipe
                 var transport = new Nemerle.LanguageServer.LspTransport(serverReadPipe, serverWritePipe);
-                var server = new Nemerle.LanguageServer.NemerleLanguageServer(transport, Serilog.Log.Logger);
+                var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(b => b.AddDebug());
+                var server = new Nemerle.LanguageServer.NemerleLanguageServer(transport, loggerFactory);
                 server.RunAsync().Wait();
             }
             catch (EndOfStreamException) { }

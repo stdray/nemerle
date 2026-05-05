@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Nemerle.Compiler;
 
 namespace Nemerle.LanguageServer;
@@ -5,16 +6,21 @@ namespace Nemerle.LanguageServer;
 public class EngineHost
 {
     private readonly List<string> _referencePaths;
+    private readonly ILogger _logger;
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
 
-    public EngineHost(IEnumerable<string>? referencePaths = null)
+    public EngineHost(IEnumerable<string>? referencePaths = null, ILogger? logger = null)
     {
         _referencePaths = referencePaths?.ToList() ?? new List<string>();
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         Directory.CreateDirectory(TempDir);
     }
 
     public List<Diagnostic> GetDiagnostics(string uri, string text)
     {
+        _logger.LogDebug("GetDiagnostics: uri={Uri}, textLen={Len}, refs={Refs}",
+            uri, text.Length, string.Join(";", _referencePaths.Select(Path.GetFileName)));
+
         var messages = new List<string>();
 
         try
@@ -45,6 +51,9 @@ public class EngineHost
                         options.References.Add(r);
                 }
 
+                _logger.LogDebug("GetDiagnostics: compiling with {Count} refs: {Refs}",
+                    options.References.Count, string.Join(";", options.References));
+
                 // Add source from temp file
                 options.Sources.Add(FileUtils.GetSource(tempFile));
 
@@ -67,7 +76,8 @@ public class EngineHost
         }
         catch (Exception ex)
         {
-            messages.Add($"{uri}(1,1): error: Internal error: {ex.Message}");
+            _logger.LogError(ex, "GetDiagnostics crashed: uri={Uri}", uri);
+            messages.Add($"{uri}(1,1): error: Internal error: {ex.GetType().Name}: {ex.Message}");
         }
 
         return ConvertToDiagnostics(messages);
