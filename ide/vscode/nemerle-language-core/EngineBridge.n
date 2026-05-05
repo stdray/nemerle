@@ -8,8 +8,6 @@ using System.IO;
 
 namespace Nemerle.Completion2
 {
-  /// Bridges the IIdeEngine (from VS integration) to LSP server.
-  /// Provides synchronous API for completion via the real compiler engine.
   public class EngineBridge
   {
     private mutable _engine   : Engine;
@@ -51,85 +49,109 @@ namespace Nemerle.Completion2
       }
     }
 
+    public Shutdown() : void
+    {
+      when (_ready)
+      {
+        _ready = false;
+        _engine.Close()
+      }
+    }
+
+    private FindSource(uri : string) : IIdeSource
+    {
+      try { _project.FindByUri(uri) :> IIdeSource }
+      catch { _ => null }
+    }
+
     public Complete(uri : string, line : int, col : int) : array[CompletionElem]
     {
-      unless (_ready) array(0);
-
-      def src = FindSource(uri);
-      when (src == null) array(0);
-
-      def snap = src.GetSourceSnapshot();
-      def lc = LineColumn(line + 1, col + 1);
-      def pos = snap.LineColumnToPosition(lc);
-      def location = Location(snap, pos);
-
-      try
+      if (_ready)
       {
-        def request = _engine.Completion(src, location, false);
-        request.CompletionResult.CompletionList
+        def src = FindSource(uri);
+        if (src != null)
+        {
+          def snap = src.GetSourceSnapshot();
+          def lc = LineColumn(line + 1, col + 1);
+          def pos = snap.LineColumnToPosition(lc);
+          def location = Location(snap, pos);
+          try
+          {
+            def request = _engine.Completion(src, location, false);
+            request.CompletionResult.CompletionList
+          }
+          catch { _ => array(0) }
+        }
+        else array(0)
       }
-      catch { _ => array(0) }
+      else array(0)
     }
 
     public GetDefinitions(uri : string, line : int, col : int) : array[GotoInfo]
     {
-      unless (_ready) array(0);
-
-      def src = FindSource(uri);
-      when (src == null) array(0);
-
-      def snap = src.GetSourceSnapshot();
-      def lc = LineColumn(line + 1, col + 1);
-      def pos = snap.LineColumnToPosition(lc);
-      def location = Location(snap, pos);
-
-      try
+      if (_ready)
       {
-        _engine.GetGotoInfo(src, location, GotoKind.Definition)
+        def src = FindSource(uri);
+        if (src != null)
+        {
+          def snap = src.GetSourceSnapshot();
+          def lc = LineColumn(line + 1, col + 1);
+          def pos = snap.LineColumnToPosition(lc);
+          def location = Location(snap, pos);
+          try { _engine.GetGotoInfo(src, location, GotoKind.Definition) }
+          catch { _ => array(0) }
+        }
+        else array(0)
       }
-      catch { _ => array(0) }
+      else array(0)
     }
 
     public GetHoverText(uri : string, line : int, col : int) : string
     {
-      unless (_ready) "error:not_ready";
-
-      def src = FindSource(uri);
-      when (src == null) "error:no_source";
-
-      def snap = src.GetSourceSnapshot();
-      def lc = LineColumn(line + 1, col + 1);
-      def pos = snap.LineColumnToPosition(lc);
-      def location = Location(snap, pos);
-
-      try
+      if (_ready)
       {
-        def request = _engine.BeginGetQuickTipInfo(src, location);
-        _ = request.AsyncWaitHandle.WaitOne(10000);
-        if (request.QuickTipInfo != null) request.QuickTipInfo.Text else "error:null_tip"
+        def src = FindSource(uri);
+        if (src != null)
+        {
+          def snap = src.GetSourceSnapshot();
+          def lc = LineColumn(line + 1, col + 1);
+          def pos = snap.LineColumnToPosition(lc);
+          def location = Location(snap, pos);
+          try
+          {
+            def request = _engine.BeginGetQuickTipInfo(src, location);
+            _ = request.AsyncWaitHandle.WaitOne(10000);
+            if (request.QuickTipInfo != null) request.QuickTipInfo.Text else "error:null_tip"
+          }
+          catch { e => "error:" + e.Message }
+        }
+        else "error:no_source"
       }
-      catch { e => "error:" + e.Message }
+      else "error:not_ready"
     }
 
     public GetMethodTip(uri : string, line : int, col : int) : MethodTipInfo
     {
-      unless (_ready) null;
-
-      def src = FindSource(uri);
-      when (src == null) null;
-
-      def snap = src.GetSourceSnapshot();
-      def lc = LineColumn(line + 1, col + 1);
-      def pos = snap.LineColumnToPosition(lc);
-      def location = Location(snap, pos);
-
-      try
+      if (_ready)
       {
-        def request = _engine.BeginGetMethodTipInfo(src, location);
-        _ = request.AsyncWaitHandle.WaitOne(5000);
-        request.MethodTipInfo
+        def src = FindSource(uri);
+        if (src != null)
+        {
+          def snap = src.GetSourceSnapshot();
+          def lc = LineColumn(line + 1, col + 1);
+          def pos = snap.LineColumnToPosition(lc);
+          def location = Location(snap, pos);
+          try
+          {
+            def request = _engine.BeginGetMethodTipInfo(src, location);
+            _ = request.AsyncWaitHandle.WaitOne(5000);
+            request.MethodTipInfo
+          }
+          catch { _ => null }
+        }
+        else null
       }
-      catch { _ => null }
+      else null
     }
 
     public GetFileUri(fileIndex : int) : string
@@ -147,21 +169,6 @@ namespace Nemerle.Completion2
         catch { _ => "" }
       }
       else ""
-    }
-
-    public Shutdown() : void
-    {
-      when (_ready)
-      {
-        _ready = false;
-        _engine.Close()
-      }
-    }
-
-    private FindSource(uri : string) : IIdeSource
-    {
-      try { _project.FindByUri(uri) :> IIdeSource }
-      catch { _ => null }
     }
   }
 }
