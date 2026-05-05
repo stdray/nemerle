@@ -41,7 +41,7 @@ public class ServerState
                 _rootPath = Uri.UnescapeDataString(new Uri(rootUri).LocalPath);
                 if (Directory.Exists(_rootPath))
                 {
-                    var nprojFiles = Directory.GetFiles(_rootPath, "*.nproj", SearchOption.TopDirectoryOnly);
+                    var nprojFiles = Directory.GetFiles(_rootPath, "*.nproj", SearchOption.AllDirectories);
                     if (nprojFiles.Length > 0)
                     {
                         foreach (var nproj in nprojFiles)
@@ -61,16 +61,16 @@ public class ServerState
 
         _engine = new EngineHost(refs);
 
-        // Init engine bridge with refs
+        // Always init engine bridge (even without .nproj — finds Nemerle types from AppDomain)
         if (_engineBridge == null)
         {
             try
             {
-                _ideProject = new LspIdeProject();
+                _ideProject = new Nemerle.Completion2.LspIdeProject();
                 foreach (var r in refs)
                     if (File.Exists(r))
                         _ideProject.AddAssemblyRef(r);
-                _engineBridge = new EngineBridge();
+                _engineBridge = new Nemerle.Completion2.EngineBridge();
                 _engineBridge.Initialize(_ideProject);
             }
             catch { _engineBridge = null; }
@@ -82,6 +82,7 @@ public class ServerState
         lock (_lock)
             _documents[uri] = new OpenDocument(uri, text, version);
 
+        EnsureEngineBridge();
         try { _engineBridge?.AddOrUpdateDocument(uri, text, version); }
         catch { _engineBridge = null; }
     }
