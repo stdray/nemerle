@@ -101,7 +101,7 @@ namespace Nemerle.Tools.MSBuildTask
             _nccPathResolved = true;
 
             // Look for ncc-core.dll (new style: dotnet ncc-core.dll), then ncc.exe
-            foreach (var name in new[] { "ncc-core.exe", "ncc-core.dll", "ncc.exe" })
+            foreach (var name in new[] { "ncc-core.dll", "ncc-core.exe", "ncc.exe" })
             {
                 if (!string.IsNullOrEmpty(CompilerPath))
                 {

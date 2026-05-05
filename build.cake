@@ -133,7 +133,7 @@ Task("BuildTasks")
     if (FileExists(dllPath))
     {
         Information("  BuildTasks: DLL exists, skipping build");
-        try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
+        try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch(Exception ex) { Warning("BuildTasks: copy to boot failed: {0}", ex.Message); }
         return;
     }
     DotNetBuild("src/Nemerle.MSBuild.Tasks/Nemerle.MSBuild.Tasks.csproj", new DotNetBuildSettings {
@@ -141,7 +141,7 @@ Task("BuildTasks")
             .SetConfiguration(configuration)
             .WithProperty("OutputPath", System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/') + "/")
     });
-    try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch {}
+    try { CopyFile(dllPath, $"{nccBoot}/Nemerle.MSBuild.Tasks.dll"); } catch(Exception ex) { Warning("BuildTasks: copy to boot failed: {0}", ex.Message); }
 });
 
 Task("PrepareSdk")
