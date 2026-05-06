@@ -1,140 +1,197 @@
-# YobaLog: доработка под сценарии отладки компилятора
+# YobaLog: сценарий агента (opencode) для отладки компилятора
 
-## Сценарии
+## Что нужно агенту — резюме
 
-**А. Инструментирование кода компилятора.** При отладке бага `MacroPhase.BeforeInheritance` мне нужно вставлять диагностические `Log.Debug(...)` в критические точки компилятора, создавать под это выделенный workspace, собирать trace и через KQL локализовать причину.
+| Endpoint | Метод | Параметры | Назначение |
+|----------|-------|-----------|------------|
+| `/api/v1/ingest/clef` | POST | `?workspace=` + `?description=` | Отправка логов, workspace создаётся лениво при первом запросе |
+| `/api/v1/query` | GET/POST | `workspace` + `kql` + `cursor` | Чтение KQL → JSON rows (все KQL-операторы, включая project/extend/summarize) |
+| `/api/v1/share` | POST | `workspace` + `kql` + `?ttlHours=` | Создание share-ссылки с редактируемым KQL в браузере |
 
-**Б. Несколько параллельных расследований.** Одновременно могу отлаживать баг компилятора, баг VSCode-сервера, баг тестов — каждому своё workspace со своим retention.
+## Ключ
 
-**В. Шеринг контекста.** Скинуть коллеге ссылку не на TSV-дамп, а на живой KQL-запрос с отфильтрованными событиями, чтобы он мог дальше исследовать.
+Агент получает wildcard-ключ с `CanCreate=true`:
 
----
+```
+X-Seq-ApiKey: dGhpcyBpcyBhIHdpbGRjYXJk...
+```
 
-## Чего не хватает
+Один ключ — все workspace. Агент НЕ управляет retention, НЕ создаёт ключи, НЕ продлевает окна. Всё это — зона ответственности пользователя и сервера.
 
-### 1. Workspace management через Ingest API key
-
-**Сейчас:** чтобы создать workspace, нужен Admin API key. У меня есть только Ingest key (`wE7zqtHYoEqsC0AjiXD75A`), который передаётся в `X-Seq-ApiKey`.
-
-**Нужно:** возможность атомарно создавать workspace при первом ingest-запросе. То есть: если workspace с указанным именем не существует — создать, если существует — писать в него. Параметр: имя workspace в CLEF-событии (доп. свойство `@ws`) или в HTTP-заголовке (`X-YobaLog-Workspace`).
+## Ingest: создание workspace и отправка логов
 
 ```http
-POST /api/v1/ingest/clef
-X-Seq-ApiKey: <ingest-key>
-X-YobaLog-Workspace: nemerle-macrophase  # ← создать если нет
+POST https://yobalog.3po.su/api/v1/ingest/clef?workspace=nemerle-macrophase&description=Debug+MacroPhase.BeforeInheritance
+X-Seq-ApiKey: dGhpcyBpcyBhIHdpbGRjYXJk...
+Content-Type: text/plain
 
-{"@t":"...", "@l":"Debug", "@mt":"FoldConstants returned: {Result}", "Result": "PExpr.Ref(...)"}
+{"@t":"2026-05-06T10:00:00.000Z","@l":"Debug","@mt":"LookupSymbol: name={Name}, found={Count}","Name":"MacroPhase","Count":0}
 ```
 
-**Альтернативно:** новый endpoint `PUT /api/v1/workspaces/{name}` доступный по Ingest key (не требующий Admin key), идемпотентный, возвращает `201`/`200`.
+**Механика:**
+- `?workspace=` — обязателен для wildcard-ключа
+- `?description=` — обязателен при создании нового workspace
+- Workspace не существует → создаётся лениво
+- Workspace существует → `description=` игнорируется
+- Имя workspace: slug `[a-z0-9][a-z0-9-]{1,39}`
 
----
+## Query API: чтение через KQL
 
-### 2. Свойства как first-class citizens в KQL
+### GET
 
-**Сейчас:** `Properties.SourceContext`, `Properties.CallChain` — через JSON extraction, без индекса, медленно на больших объёмах.
-
-**Нужно:** для часто-используемых свойств — явный индекс (allowlist на workspace). При `DeclareIndexAsync("SourceContext")` — колонка в `Events` таблице, доступна как `SourceContext` без `Properties.` префикса.
-
-```kql
-| where SourceContext == "ConstantFolder" and SymbolId == "MacroPhase.BeforeInheritance"
-| order by Timestamp asc
-| project Timestamp, Level, SymbolResult, Message
+```http
+GET https://yobalog.3po.su/api/v1/query?workspace=nemerle-macrophase&kql=events+|+where+Level+>=+3+|+order+by+Timestamp+asc+|+take+50
+X-Seq-ApiKey: dGhpcyBpcyBhIHdpbGRjYXJk...
 ```
 
----
+### POST (для длинных KQL)
 
-### 3. Интерактивные share-ссылки с KQL
+```http
+POST https://yobalog.3po.su/api/v1/query
+X-Seq-ApiKey: dGhpcyBpcyBhIHdpbGRjYXJk...
+Content-Type: application/json
 
-**Сейчас:** `/share/{ws}/{id}.tsv` — статический TSV-экспорт.
+{
+  "workspace": "nemerle-macrophase",
+  "kql": "events\n| where Properties.SourceContext == \"ConstantFolder\"\n| project Timestamp, Properties, Message\n| order by Timestamp asc",
+  "cursor": null
+}
+```
 
-**Нужно:** новый тип share-ссылки с живым KQL:
-- `POST /share` с телом `{ workspace, kql, ttl }` → возвращает URL `/share/kql/{id}`
-- При открытии — рендерится KQL UI с предзаполненным запросом и результатами
-- Доступ без аутентификации (как текущий share, но интерактивный)
-- TTL-контроль: 1h / 6h / 24h / 7d
+### Ответ
 
-**Пример сценария:** я добавил 10 `Log.Debug()` в компилятор, собрал логи в workspace `nemerle-macrophase`, отфильтровал через KQL, делюсь ссылкой — коллега сразу видит контекст, может менять where/take/order в браузере.
+```json
+{
+  "columns": ["Timestamp","Level","LevelName","Message","MessageTemplate","Exception","TraceId","SpanId","EventId","Properties"],
+  "rows": [
+    ["2026-05-06T10:00:01.000Z","Debug","Debug","FoldConstants returned: [ ]","FoldConstants returned: {Result}","","","",null,{"SourceContext":"ConstantFolder","Result":"[ ]"}],
+    ["2026-05-06T10:00:00.000Z","Debug","Debug","LookupSymbol: name=MacroPhase, found=0","LookupSymbol: name={Name}, found={Count}","","","",null,{"SourceContext":"GlobalEnv","Name":"MacroPhase","Count":0}]
+  ],
+  "cursor": "AAECAwQFBgcICQoLDA0ODw==",
+  "truncated": false
+}
+```
 
----
+**Требования к ответу:**
+- `Properties` — **обязательно** в columns. JSON-объект, содержит все кастомные свойства события
+- Допустимы **все реализованные операторы KQL**: `project`, `extend`, `summarize` в том числе. Если KQL меняет форму — columns отражают результат
+- `cursor` — непрозрачная base64-строка, монотонно возрастающая последовательность. Передавать `cursor` из предыдущего ответа для пагинации. `null` если страниц больше нет
 
-### 4. Tracing (OTLP spans) в share и KQL
+## Share-ссылка: живой KQL для человека
 
-**Сейчас:** OTLP traces пишутся в `{workspace}.traces.db`, есть waterfall UI. Но share-ссылки только для событий. Нет KQL-доступа к span'ам из share.
+```http
+POST https://yobalog.3po.su/api/v1/share
+X-Seq-ApiKey: dGhpcyBpcyBhIHdpbGRjYXJk...
+Content-Type: application/json
 
-**Нужно:**
-- Share-ссылка с KQL-запросом к span'ам: `POST /share { workspace, kql, target: "spans", ttl }`
-- В share-интерфейсе — переключение events/spans, переход из span к связанным событиям по TraceId
+{
+  "workspace": "nemerle-macrophase",
+  "kql": "events\n| where Properties.SourceContext == \"GlobalEnv\"\n| where Message contains \"LookupSymbol\"\n| order by Timestamp asc"
+}
+```
 
-**Сценарий:** я обернул `EngineHost.GetDiagnostics` в OTel Span. Делюсь ссылкой с KQL `| where Name contains "GetDiagnostics" | order by Duration desc`. Коллега кликает на span → видит waterfall → drill-down к событиям с тем же TraceId.
+### Ответ
 
----
+```json
+{
+  "url": "https://yobalog.3po.su/share/kql/abc123",
+  "expiresAt": "2026-05-07T10:00:00Z"
+}
+```
 
-### 5. Self-instrumentation SDK для .n (Nemerle)
+### Поведение ссылки
 
-**Сейчас:** C# проекты используют `Seq.Extensions.Logging` + `Serilog.Sinks.Seq`. Nemerle-код (`.n`) может вызывать `System.Console.WriteLine` — неструктурированно.
+| Клиент | Accept | Результат |
+|--------|--------|-----------|
+| Браузер | `text/html` | HTML-страница с **редактируемым** KQL textarea + таблица событий + infinite scroll |
+| curl / агент | `*/*` | TSV-файл |
 
-**Нужно:** минимальный Nemerle-хелпер для structured logging в YobaLog.
+**Критично:** KQL textarea в браузере **редактируемая**. Человек, открывший share-ссылку, может менять where/take/order/project — полноценно исследовать.
 
-*Вариант A (простой):* статический класс на C# (в `Nemerle.LanguageServer` или отдельной lib), который принимает message template + props и шлёт HTTP CLEF напрямую:
+## Self-instrumentation для Nemerle (`.n`)
+
+Нужен минимальный C# helper, вызываемый из `.n` через Interop:
+
+```csharp
+public static class YobaLog
+{
+    private static readonly HttpClient _http = new() { BaseAddress = new Uri("https://yobalog.3po.su") };
+
+    public static void Configure(string apiKey, string workspace) { ... }
+
+    public static void Debug(string messageTemplate, params (string key, object value)[] props)
+    {
+        // POST /api/v1/ingest/clef?workspace={workspace}
+        // X-Seq-ApiKey: {apiKey}
+        // CLEF NDJSON: {"@t":"...","@l":"Debug","@mt":messageTemplate, ...props}
+    }
+    // Information, Warning, Error — аналогично
+}
+```
+
+Использование из `.n` компилятора:
 
 ```n
-YobaLog.Debug("FoldConstants returned: {Result}", result.ToString());
-YobaLog.Information("LookupSymbol found: {Count} members", members.Length);
+// ConstantFolder.n
+YobaLog.Debug("literal_field_value: qid={Qid}, lookup={Result}",
+    ("Qid", qid), ("Result", lookupResult));
 ```
 
-*Вариант B (нативный):* Nemerle-макрос, который генерирует Serilog-вызовы или прямые CLEF HTTP POST.
+## Сценарий: отладка MacroPhase.BeforeInheritance
 
-Рекомендуется вариант A — минимальный статический класс на ~50 строк, используемый из `.n` через Interop.
+### Шаг 1: Инструментирование
 
----
+Вставляю `YobaLog.Debug` в:
+- `MacroClassGen.n:73` — что пришло в `ph`, что вернул `FoldConstants`
+- `ConstantFolder.n:386` — что вернул `QidOfExpr`, что вернул `LookupSymbol`
+- `GlobalEnv.n:378` — как разбился `id` на `(type_part, the_name)`, какие типы нашлись
 
-### 6. Per-workspace TTL / retention-класс
+### Шаг 2: Запуск и сбор
 
-**Сейчас:** retention настраивается через Admin UI.
+Сервер стартует, логи идут в `?workspace=nemerle-macrophase`. Сервер НЕ управляет созданием workspace — просто пишет.
 
-**Нужно:** при создании workspace (см. п.1) указывать TTL или retention-класс:
-- `volatile` — 1h, автоматическая очистка
-- `debug` — 24h
-- `normal` — 30d (дефолт)
-- `permanent` — never
+### Шаг 3: Анализ
 
-Без этого debug-воркспейсы будут жить 30 дней и забивать диск.
+```kql
+-- Вижу, что LookupSymbol возвращает пустой список
+events
+| where Properties.SourceContext == "ConstantFolder"
+| order by Timestamp asc
+| project Timestamp, Message, Result=Properties.Result
 
----
+-- Родительский вызов — что пришло в LookupSymbol?
+events
+| where Properties.SourceContext == "GlobalEnv"
+| project Timestamp, TypePart=Properties.TypePart, Name=Properties.TheName, Found=Properties.Count
 
-## Приоритеты
+-- Сравниваю с успешным случаем (Nemerle.Macros.dll)
+events
+| where Properties.SymbolId contains "MacroPhase"
+| summarize Count=count() by Result=Properties.Result
+```
 
-| # | Что | Критичность | Зачем |
-|---|-----|-------------|-------|
-| 1 | Workspace через ingest key | Критично | Без этого не могу создавать workspace под каждое расследование |
-| 2 | Интерактивные share-ссылки с KQL | Критично | Без этого не могу передать контекст коллеге (TSV — мёртвый) |
-| 3 | Индексы для Properties.* | Важно | `SourceContext`, `SymbolId` — будут в каждом событии |
-| 4 | Self-instrumentation для .n | Важно | Без этого не могу инструментировать компилятор (он на Nemerle) |
-| 5 | OTLP traces в share/KQL | Средне | Пока не упёрся, но как только начну tracing компилятора — понадобится |
-| 6 | Per-workspace TTL | Средне | Пока workspace мало, но после п.1 станет актуально |
+### Шаг 4: Share
 
----
-
-## Пример workflow после доработок
+Нашёл, что `LookupTypes(["MacroPhase"])` возвращает пустой список без namespace `Nemerle`:
 
 ```
-1. VSCode-сервер стартует
-   → Serilog шлёт CLEF в yobalog.3po.su
-   → заголовок X-YobaLog-Workspace: nemerle-lsp
-   → workspace создаётся атомарно (п.1)
-
-2. Компилятор инструментирован (п.4):
-   YobaLog.Debug("literal_field_value: id={Id}, lookup={Result}", id, lookupResult);
-
-3. В браузере: KQL-запрос в workspace nemerle-lsp
-   | where SourceContext == "ConstantFolder"           ← п.3, индексировано
-   | where SymbolId contains "MacroPhase"
-   | order by Timestamp asc
-
-4. Нашёл проблему → Share → KQL (п.2)
-   URL: https://yobalog.3po.su/share/kql/abc123
-   Коллега открывает → видит тот же KQL, может доисследовать
-
-5. Через час workspace авто-очищается (п.6, volatile TTL)
+POST /api/v1/share
+{ "workspace": "nemerle-macrophase",
+  "kql": "events\n| where Properties.TypePart contains \"MacroPhase\"\n| order by Timestamp asc\n| project Timestamp, Message, TypePart=Properties.TypePart, Found=Properties.Count" }
 ```
+
+Коллега открывает → видит KQL textarea → меняет фильтры → понимает что NamespaceTree не содержит `Nemerle.MacroPhase` → чинит.
+
+### Шаг 5: Decision log
+
+Записываю находку в decision-log.md со ссылкой на share:
+
+> 2026-05-06 — MacroPhase.BeforeInheritance: `LookupTypes(["MacroPhase"])` returns empty in NamespaceTree when project uses PackageReference (different Nemerle.dll file from compiler). Root cause: two loaded Nemerle.dll files confuse name resolution. See share: https://yobalog.3po.su/share/kql/abc123
+
+## Что НЕ нужно агенту
+
+- **Retention management.** Сервер сам управляет retention. Логов мало, пространство считаем безграничным для агента.
+- **Создание / удаление ключей.** Пользователь даёт ключ, агент использует.
+- **Продление CreateWindow.** Окно создания — зона пользователя. Не укладываешься — бери новый ключ.
+- **Парсинг cursor.** Непрозрачный токен, передавать как есть.
+- **Rate limiting / retry.** При отладке потеря пары логов некритична. Fire-and-forget.

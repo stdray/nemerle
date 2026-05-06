@@ -73,8 +73,10 @@ namespace Nemerle.Compiler
               match (ConstantFolder.FoldConstants (env, ph)) {
                 | PExpr.Literal (Literal.Enum (Literal.Integer (x, false, _), ty, _))
                   when ty.FullName == "Nemerle.MacroPhase" =>
+                  CompilerLog.Debug( $"MacroUsage: FoldConstants OK, phase={x :> MacroPhase}");
                   x :> MacroPhase
-                | _ =>
+                | other =>
+                  CompilerLog.Debug( $"MacroUsage: FoldConstants FAILED, expr={ph}, result={other}");
                   Message.FatalError ("invalid value on MacroPhase position: " + ph.ToString ())
               };
               

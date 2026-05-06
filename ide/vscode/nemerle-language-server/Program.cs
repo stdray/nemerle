@@ -2,11 +2,11 @@ using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
 using Seq.Extensions.Logging;
 
-// Configure logging: Debug (stdout via Debug.WriteLine) + Seq
+// Configure logging: Debug (stdout via Debug.WriteLine) + YobaLog (Seq-compat)
 var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL")
-    ?? "http://yobalog.3po.su/compat/seq";
+    ?? "http://yobalog.3po.su/compat/seq?workspace=nemerle-lsp";
 var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY")
-    ?? "wE7zqtHYoEqsC0AjiXD75A";
+    ?? "lS0Q17oH70-qA_pojYBVTQ";
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {

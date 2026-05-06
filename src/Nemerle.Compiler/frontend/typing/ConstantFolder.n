@@ -385,13 +385,18 @@ namespace Nemerle.Compiler
     {
       match (Util.QidOfExpr (expr)) {
         | Some ((id, name)) =>
+          def qid = Nemerle.Utility.NString.Concat(".", id);
+          CompilerLog.Debug($"literal_field_value: qid=$qid");
           match (name.GetEnv (env).LookupSymbol (id, tb)) {
             | [fld is IField] when fld.IsLiteral =>
+              CompilerLog.Debug( $"literal_field_value: found IField lit=$fld");
               match (FieldValueAsLiteral (fld, triggerObsoleteWarn)) {
                 | None => expr
                 | Some (lit) => PExpr.Literal (expr.Location, lit)
               }
-            | _ => expr
+            | other =>
+              CompilerLog.Debug( $"literal_field_value: lookup result count=$(other.Length)");
+              expr
           }
         | None => expr
       }

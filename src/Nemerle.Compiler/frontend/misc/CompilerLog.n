@@ -1,0 +1,41 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Nemerle.Compiler
+{
+  public module CompilerLog
+  {
+    /// Static ambient logger — set by host (VSCode server, ncc-core) before
+    /// compilation. Defaults to NullLogger — no logging unless configured.
+    public mutable Instance : ILogger = NullLogger.Instance;
+
+    For(am_ : ILogger) : void
+    {
+      Instance = am_
+    }
+
+    public Debug(message : string) : void
+    {
+      when (Instance.IsEnabled(LogLevel.Debug))
+        Instance.Log(LogLevel.Debug, 0, message, null, (s, _) => s);
+    }
+
+    public Information(message : string) : void
+    {
+      when (Instance.IsEnabled(LogLevel.Information))
+        Instance.Log(LogLevel.Information, 0, message, null, (s, _) => s);
+    }
+
+    public Warning(message : string) : void
+    {
+      when (Instance.IsEnabled(LogLevel.Warning))
+        Instance.Log(LogLevel.Warning, 0, message, null, (s, _) => s);
+    }
+
+    public Error(message : string) : void
+    {
+      when (Instance.IsEnabled(LogLevel.Error))
+        Instance.Log(LogLevel.Error, 0, message, null, (s, _) => s);
+    }
+  }
+}

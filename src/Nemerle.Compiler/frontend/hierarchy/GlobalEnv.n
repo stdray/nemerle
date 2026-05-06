@@ -376,6 +376,9 @@ namespace Nemerle.Compiler
       // these are really small, so we do linear lookup in list
       mutable visited = [];
       def (type_part, the_name) = NList.DivideLast(name);
+      def tp = Nemerle.Utility.NString.Concat(".", type_part);
+      def qname = Nemerle.Utility.NString.Concat(".", name);
+      CompilerLog.Debug($"LookupSymbolExt: type_part=$tp, the_name=$the_name, qid=$qname");
       // now we have type_part . the_name
 
       def add_members_from((pt : TypeInfo, ti : TypeInfo), acc : list[TypeInfo * IMember])
