@@ -2,10 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [retarget-compiler]
+    branches: [reanemerle]
     tags: ['nuget']
-  pull_request:
-    branches: [retarget-compiler]
   workflow_dispatch:
 
 permissions:

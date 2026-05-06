@@ -1,2 +1,151 @@
+# Created by https://www.toptal.com/developers/gitignore/api/csharp,dotnetcore,vs,visualstudio,visualstudiocode,rider
+# Edit at https://www.toptal.com/developers/gitignore?templates=csharp,dotnetcore,vs,visualstudio,visualstudiocode,rider
+
+### Csharp + DotnetCore + VS + VSCode + Rider (merged toptal)
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+[Bb]in/
+[Oo]bj/
+bld/
+[Ll]og/
+
+# User-specific
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Visual Studio
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# Rider
+*.sln.iml
+.idea/
+
+# Build artifacts
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.ilk
+*.meta
+*.iobj
+*.pch
+*.obj
+*.tmp
+*.tmp_proj
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+*.binlog
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Node
+node_modules/
+
+# VSCode extensions
+*.vsix
+
+# Code coverage
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+### Nemerle-specific
+
+# Cake tool store
+tools/.store/
+tools/dotnet-gitversion*
+_cake/
+
+# Bootstrap generated at build time
+boot/ncc-core.runtimeconfig.json
+boot/Nemerle.MSBuild.Tasks.dll
+boot/netcore21-backup/
+
+# IL validation temp
+validate_tmp/
+
+# CI artifacts
+build_output.txt
+test_output*.txt
+test-results.txt
+abstract.xml
+macro-xmldocs.xml
+_*.cake
+_*.log
+_*.txt
+
+# Test compilation outputs
+tests/positive/*.exe
+tests/positive/*.dll
+tests/positive/*.pdb
+tests/positive/*.xml
+tests/positive/*.runtimeconfig.json
+tests/negative/*.exe
+tests/negative/*.dll
+tests/negative/*.xml
+tests/negative/*.runtimeconfig.json
+tests/.tmp_test/
+
+# Git-ignored docs and tooling
+AGENTS.md
+doc/*.md
+.opencode/
+dotnet-tools.json
+!.config/dotnet-tools.json
+
+# Legacy
+*.csproj.user
+*.Generated.cs
+config.mak
+configure.log
+nemerle.pc
+testsuite/
+snippets/VS2010/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/Nemerle*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2012/Projects/Web/WSWebSite/Nemerle*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2012/Projects/Web/WSWebSite/*.dll
+snippets/VS2010/Nemerle.VisualStudio/Templates-VS-2013/Projects/Web/WSWebSite/*.dll
+VsIntegration/Nemerle.VisualStudio/Templates/Projects/Web/WSWebSite/*.dll
+
+# Docker local dev
 .dockerignore
 Dockerfile

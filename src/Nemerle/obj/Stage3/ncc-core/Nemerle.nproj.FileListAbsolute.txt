@@ -1,7 +1,0 @@
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.xml
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.deps.json
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.dll
-D:\prj\clones\nemerle\src\Nemerle\obj\Stage3\ncc-core\Nemerle.nproj.AssemblyReference.cache
-D:\prj\clones\nemerle\src\Nemerle\obj\Stage3\ncc-core\Nemerle.nproj.CoreCompileInputs.cache
-D:\prj\clones\nemerle\src\Nemerle\obj\Stage3\ncc-core\Nemerle.sourcelink.json
-D:\prj\clones\nemerle\src\Nemerle\obj\Stage3\ncc-core\Nemerle.dll
