@@ -8,7 +8,9 @@ Reply in the user's language.
 
 ## Status
 
-`retarget-compiler` branch — net8.0 bootstrap. CI verified: 440/452 positive (97%), 165/166 negative (99%).
+`reanemerle` branch — net8.0 bootstrap, CI green (Stage1→Stage2→Stage3→Validate→Test→Pack→NuGetPush).
+CI verified: 440/452 positive (97%), 165/166 negative (99%).
+NuGet: `stdray.Nemerle.Compiler` 1.3.0-rc.10341 published on nuget.org.
 
 ## VSCode extension status
 
@@ -17,31 +19,34 @@ Plan: `doc/vscode-plan.md` — keep checkbox statuses up to date:
 - Mark completed items with `[x]`
 - Add new checkboxes as tasks emerge
 - Update the test count in Status after each test run
-Last known: not started.
+Status: server builds via PackageReference, 13/13 LSP tests pass, syntax highlight + diagnostics + completion + hover + go-to-def working.
 
 ## Git-ignored files
 
-`AGENTS.md`, `doc/*.md`, and `dotnet-tools.json` are in `.gitignore`. Changes to these files will NOT be committed.
+`.dockerignore`, `Dockerfile`, `dotnet-tools.json` are in `.gitignore`. `.config/dotnet-tools.json` IS committed.
+**All `.md` files are committed** — `AGENTS.md`, `doc/*.md`, `PLAN.md` are tracked. Changes to these files ARE committed.
 
 ## Commands
 
 - **Full build:** `dotnet-cake build.cake --target=Stage1`
 - **Full CI (build + validate + test):** `dotnet-cake build.cake --target=CI`
 - **Test:** `dotnet-cake build.cake --target=Test` — logs in `bin/Release/Tests/test-positive.log` + `test-negative.log`
-- **Single test:** `dotnet-cake build.cake --target=Test --testFilter="testsuite/positive/codedom.n"`
-- **Dev loop:** edit `.n` source → `dotnet build Nemerle.Compiler.nproj -c Release /p:Nemerle=boot-dnlib` → copy DLLs to test runner dir
-- Cake tasks order: Clean → FixBoot → BuildTasks → PrepareSdk → Stage1 → PrepareStage1Sdk → Stage2 → Stage3 → Validate → BuildTestInfrastructure → Test → ReplaceBootstrap
+- **Single test:** `dotnet-cake build.cake --target=Test --testFilter="tests/positive/codedom.n"`
+- **NuGet publish (local):** `dotnet cake build.cake --target=NuGetPush` (needs NUGET_API_KEY env)
+- **VSCode build:** `dotnet cake build.cake --target=BuildVscode`
+- Cake tasks order: Version → Clean → FixBoot → BuildTasks → PrepareSdk → Stage1 → PrepareStage1Sdk → Stage2 → Stage3 → Validate → PackNemerle → NuGetPush (for tag CI)
+- YobaConf tooling: `global.json` + `.config/dotnet-tools.json` + `dotnet tool restore` + `dotnet cake`
 
 ## Architecture
 
-- **Boot compiler:** `boot-dnlib/` — prebuilt .NET 8.0 compiler (`ncc-core.exe` native apphost, `ncc-core.dll` managed). Also contains 100+ framework DLLs from .NET Core 2.1 used as compilation references.
-- **Compiler source:** `ncc/backend/` (codegen, dnlib-based), `ncc/frontend/` (parsing, typing, macros), `ncc/shared/` (AssemblyInfo).
-- **Standard library:** `lib/` → `Nemerle.nproj` (netstandard2.0).
-- **Compiler:** `Nemerle.Compiler.nproj` (netstandard2.0, dnlib 4.5.0, System.CodeDom 4.7.0).
-- **Macros:** `Nemerle.Macros.nproj` (SDK-style, used). `Nemerle.Macros-dnlib.nproj` is old-style and NOT built by Cake.
-- **Entry point:** `ncc-core.nproj` (net8.0, references Nemerle.Compiler + Nemerle).
-- **MSBuild integration:** `Nemerle.MSBuild.Tasks.csproj` (netstandard2.0). SDK props/targets in `tools/msbuild-task/`, copied to boot and each stage.
-- **Test runner:** `snippets/Nemerle.Test/Nemerle.Compiler.Test/` — hosts compiler in-process (HostedNcc, default) or spawns process (ExternalNcc, fallback via `-ncc` flag).
+- **Boot compiler:** `boot/` (renamed from `boot-dnlib/`) — prebuilt .NET 8.0 compiler (`ncc-core.dll` managed). Also contains 100+ framework DLLs.
+- **Compiler source:** `src/Nemerle.Compiler/` (frontend + backend, dnlib-based), `src/Nemerle/` (stdlib), `src/Nemerle.Macros/`.
+- **Entry point:** `src/ncc-core/` (net8.0, references Nemerle.Compiler + Nemerle).
+- **MSBuild SDK:** `sdk/` — canonical source for `Nemerle.Sdk.props/targets` and `Nemerle.MSBuild.targets`.
+- **MSBuild Tasks:** `src/Nemerle.MSBuild.Tasks/` (netstandard2.0). Copied to boot and each stage.
+- **NuGet package:** `src/Nemerle.Compiler.Package/` (netstandard2.0, PackageId=stdray.Nemerle.Compiler).
+- **Test runner:** `snippets/Nemerle.Test/Nemerle.Compiler.Test/` — hosts compiler in-process.
+- **Legacy:** `src/legacy/` — old `.nproj`/`.csproj` files no longer built.
 - All `.nproj` files use `<NoStdLib>true` — the compiler bootstraps itself, no implicit stdlib.
 
 ## Hard invariants
@@ -55,8 +60,10 @@ Last known: not started.
 - **EXE tests need `.runtimeconfig.json`.** Tests with `BEGIN-OUTPUT` are compiled as `.exe`. Cake generates `<name>.runtimeconfig.json` automatically.
 - **Test runner needs `-r dotnet`** for EXE tests. Hardcoded in Cake Test task.
 - **Shared `obj/` directory.** Cake assigns per-stage: `obj/Stage1`, `obj/Stage2`, `obj/Stage3`. Build individual projects with `--no-dependencies` after restoring all.
-- **`ncc-core.exe` runs directly** (no `dotnet` wrapper). MSBuildTask searches `ncc-core.exe` → `ncc-core.dll` → `ncc.exe`.
+- **`ncc-core.dll` is the compiler entry point** (no `.exe` apphost for cross-platform). MSBuildTask searches `ncc-core.dll` → `ncc-core.dll` → `ncc.exe`.
 - **All tests get `-nowarn:10003`.** Passed in Cake Test task.
+- **NuGet PackageId:** `stdray.Nemerle.Compiler` (prefixed to avoid nuget.org name conflict with original `Nemerle.Compiler` by hardcase).
+- **GitVersion:** `ContinuousDelivery`, `next-version: 1.3.0`, label `rc`. Configured in `GitVersion.yml` at repo root.
 
 ## Validate
 

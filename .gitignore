@@ -125,9 +125,10 @@ tests/negative/*.xml
 tests/negative/*.runtimeconfig.json
 tests/.tmp_test/
 
-# Git-ignored docs and tooling
-AGENTS.md
-doc/*.md
+# Development docs — committed
+# All .md files in doc/ and root AGENTS.md are now tracked
+
+# OpenCode workspace
 .opencode/
 dotnet-tools.json
 !.config/dotnet-tools.json

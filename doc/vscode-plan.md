@@ -8,7 +8,10 @@ Target: ~74 hours to working prototype.
 Prototype works in VSCode: syntax highlight, diagnostics (real compiler), completion
 (Engine-backed: semantic + lexical fallback), hover (Engine type info via HintMarkdownRenderer),
 go-to-definition (Engine.GetGotoInfo), documentSymbol, compile/run commands.
-13/13 LSP tests pass. CI: 440/452 positive (97%), 165/166 negative (99%).
+17/17 LSP tests pass. CI: 440/452 positive (97%), 165/166 negative (99%).
+NuGet: migrated from HintPath to PackageReference `stdray.Nemerle.Compiler` 1.3.0-rc.10341.
+Recovery: 4 tests verify server survives compiler errors (Recovery.Tests) via EngineHost crash handler.
+MSBuild nproj: NprojLoader uses Microsoft.Build.Evaluation.Project (no raw XML).
 
 ## 0. Preparation — Copy and retarget IntelliSense engine
 
@@ -25,7 +28,7 @@ go-to-definition (Engine.GetGotoInfo), documentSymbol, compile/run commands.
 ### 1.1 Project scaffolding — DONE
 - [x] 1.1.1 Create `Nemerle.LanguageServer.csproj` (net8.0, `OutputType=Exe`, `ServerGarbageCollection=true`)
 - [x] 1.1.2 Add NuGet: `Serilog`, `Serilog.Sinks.File`
-- [x] 1.1.3 Add references to `Nemerle.dll`, `Nemerle.Compiler.dll`, `Nemerle.Macros.dll`, `dnlib.dll`
+- [x] 1.1.3 Add `PackageReference stdray.Nemerle.Compiler` (Nemerle+Compiler+Macros+dnlib) + `ProjectReference Nemerle.Language.Core`
 - [x] 1.1.4 `Program.cs` — entry point, Serilog config, preload Nemerle assemblies, start server
 
 ### 1.2 Core state — DONE
@@ -33,8 +36,9 @@ go-to-definition (Engine.GetGotoInfo), documentSymbol, compile/run commands.
 - [x] 1.2.2 `EngineHost.cs` — HostedNcc-style compiler wrapper: temp files, compile, collect diagnostics
 - [x] 1.2.3 `LspTransport.cs` — stdin/stdout JSON-RPC reader/writer with LSP header parsing
 
-### 1.3 Project system
-- [x] 1.3.1 `ProjectSystem/NprojLoader.cs` — parse `.nproj` XML, extract sources, references, defines, output type
+### 1.3 Project system — MSBuild-based
+- [x] 1.3.1 `ProjectSystem/NprojLoader.cs` — parse `.nproj` via MSBuild `Microsoft.Build.Evaluation.Project`, extract sources/refs/defines
+- [x] 1.3.1b `ProjectSystem/NprojLoader.cs` — `ResolveProjectReferences` resolves `.nproj` → output DLL paths
 - [ ] 1.3.2 `ProjectSystem/NuGetRestorer.cs` — run `dotnet restore` on project change (deferred, low priority)
 - [ ] 1.3.3 `ProjectSystem/WorkspaceManager.cs` — discover `.nproj` in workspace root, track multiple projects (deferred)
 
@@ -59,10 +63,9 @@ These are the key to replacing lexical stubs with real semantic IntelliSense
 - [x] 1.5.8 `Handlers/DocumentSymbolHandler.cs` — AnalysisEngine.GetDocumentSymbols
 - [x] 1.5.9 `Handlers/DiagnosticHandler.cs` — EngineHost (HostedNcc-style), works well
 
-Not yet implemented (blocked by 1.4 adapters):
+Not yet implemented:
 - [ ] 1.5.6 `Handlers/ReferencesHandler.cs` — needs Engine.FindAllSymbols()
 - [ ] 1.5.7 `Handlers/SignatureHelpHandler.cs` — needs Engine.GetMethodTipInfo()
-- [ ] 1.5.8 `Handlers/DocumentSymbolHandler.cs` — needs parsed TopDeclaration tree
 - [ ] 1.5.10 `Handlers/SemanticTokensHandler.cs` — needs Engine.UpdateTypeHighlightings() + Engine.HighlightUsages()
 
 ### 1.6 Custom endpoints (nemerle/*)
@@ -78,6 +81,7 @@ Not yet implemented (blocked by 1.4 adapters):
 - [ ] 2.1.3 `Infrastructure/CursorExtractor.cs` — extract `$0` marker positions from test source
 
 ### 2.2 Test suites
+- [x] 2.2.0 `RecoveryTests.cs` — recovery tests (server survives compiler errors, hover after Recovery, ProjectReference prevents Recovery) — 4 tests
 - [x] 2.3.1 `DiagnosticsTests.cs` — error diagnostics, parse error ranges, multiple errors (3 tests)
 - [x] 2.3.2 `CompletionTests.cs` — keywords, prefix filter, local identifiers, stdlib types, CompletionList (5 tests)
 - [x] 2.3.3 `IntegrationTests.cs` — workspace+.nproj, multi-doc, rapid changes, variant types, completion in module (5 tests)
@@ -145,3 +149,8 @@ Not yet implemented (blocked by 1.4 adapters):
 - [x] Fix: BOM in LSP transport (`UTF8Encoding(false)`)
 - [x] Fix: `extPath` server discovery path (one `..` not two)
 - [x] Fix: definition URI hardcoded to `file:///test/t.n`
+- [x] Recovery tests: EngineHost crash handler + 4 RecoveryTests (Recovery, hover, ProjectReference, NprojLoader)
+- [x] MSBuild nproj: `NprojLoader.cs` uses `Microsoft.Build.Evaluation.Project` (not raw XML)
+- [x] NuGet: migrate from HintPath to `<PackageReference Include="stdray.Nemerle.Compiler">` + `ExcludeAssets="build;buildTransitive"`
+- [x] Tests: remove HintPath to Nemerle.Macros (transitive via PackageReference)
+- [x] build.cake BuildVscode: remove NemerleBin property and manual DLL copy
