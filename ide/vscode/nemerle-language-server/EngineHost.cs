@@ -8,6 +8,26 @@ public class EngineHost
     private readonly List<string> _referencePaths;
     private readonly ILogger _logger;
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
+    private static readonly string[] _frameworkAssemblies;
+    private static readonly string? _frameworkDir;
+
+    static EngineHost()
+    {
+        // Discover .NET framework assemblies so the compiler can resolve System.* types.
+        // On .NET 8+, most types live in System.Private.CoreLib.dll directly.
+        // Include all System.*.dll — duplicate type forwards produce warnings, not errors.
+        _frameworkDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        if (_frameworkDir != null && Directory.Exists(_frameworkDir))
+        {
+            _frameworkAssemblies = Directory.GetFiles(_frameworkDir, "System.*.dll")
+                .Where(f => !f.EndsWith(".Native.dll", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+        else
+        {
+            _frameworkAssemblies = Array.Empty<string>();
+        }
+    }
 
     public EngineHost(IEnumerable<string>? referencePaths = null, ILogger? logger = null)
     {
@@ -44,7 +64,11 @@ public class EngineHost
                     EarlyExit = false
                 };
 
-                // Add user references from .nproj (NOT Nemerle core — those are already in AppDomain)
+                // Framework references — needed for System.Console, System.Linq, etc.
+                foreach (var r in _frameworkAssemblies)
+                    options.References.Add(r);
+
+                // User references from .nproj
                 foreach (var r in _referencePaths)
                 {
                     if (!string.IsNullOrEmpty(r) && System.IO.File.Exists(r))
@@ -74,13 +98,43 @@ public class EngineHost
                 try { System.IO.File.Delete(tempFile); } catch { }
             }
         }
+        catch (Nemerle.Compiler.Recovery)
+        {
+            // Recovery is expected — compiler found too many errors and bailed out.
+            // Messages collected before bailout are in the list already.
+            _logger.LogDebug("GetDiagnostics: Recovery bailout for {Uri}", uri);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "GetDiagnostics crashed: uri={Uri}", uri);
             messages.Add($"{uri}(1,1): error: Internal error: {ex.GetType().Name}: {ex.Message}");
         }
 
+        // Rewrite temp file paths to the original URI so VSCode can map diagnostics to the document
+        RewritePaths(messages, TempDir, uri);
+
         return ConvertToDiagnostics(messages);
+    }
+
+    private static void RewritePaths(List<string> messages, string tempDir, string uri)
+    {
+        // Decode URI to file path for matching against temp directory
+        var decodedUri = uri;
+        try { decodedUri = new Uri(uri).LocalPath.Replace('\\', '/'); } catch { }
+
+        for (int i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            if (msg.StartsWith(tempDir, StringComparison.OrdinalIgnoreCase))
+            {
+                // Replace temp path prefix with URI
+                var colonIndex = msg.IndexOf('(');
+                if (colonIndex > 0)
+                {
+                    messages[i] = uri + msg[colonIndex..];
+                }
+            }
+        }
     }
 
     private static List<Diagnostic> ConvertToDiagnostics(List<string> messages)

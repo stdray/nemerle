@@ -537,12 +537,22 @@ Task("BuildVscode")
     .Does(() =>
 {
     Information("=== BUILDING VSCODE LANGUAGE SERVER ===");
-    var absS1Out = System.IO.Path.GetFullPath(stage1Out).Replace('\\', '/');
-    var absBoot = System.IO.Path.GetFullPath(nccBoot).Replace('\\', '/');
+    var absNugetBuild = System.IO.Path.GetFullPath(
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".nuget/packages/stdray.nemerle.compiler/1.3.0-rc.10341/build")).Replace('\\', '/');
     EnsureDirectoryExists($"{testOut}/Vscode");
 
-    // Build Nemerle.Language.Core.dll (Nemerle, netstandard2.0) — use boot-dnlib as SDK (has props/targets)
-    DotNetBuildOne("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", absBoot, $"{testOut}/Vscode", "obj/Tests/VscodeCore");
+    // Build Nemerle.Language.Core.dll — uses PackageReference stdray.Nemerle.Compiler,
+    // SDK from NuGet build/ directory. Integration knows NOTHING about compiler build.
+    DotNetBuild("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", new DotNetBuildSettings {
+        Configuration = configuration,
+        MSBuildSettings = new DotNetMSBuildSettings()
+            .SetConfiguration(configuration)
+            .WithProperty("OutputPath", System.IO.Path.GetFullPath($"{testOut}/Vscode").Replace('\\', '/') + "/")
+            .WithProperty("NemerlePackageBuildDir", absNugetBuild)
+            .WithProperty("Nemerle", absNugetBuild)
+    });
 
     // Build nemerle-language-server (C#, net8.0) — uses stdray.Nemerle.Compiler NuGet PackageReference
     DotNetBuild("ide/vscode/nemerle-language-server/Nemerle.LanguageServer.csproj", new DotNetBuildSettings {
@@ -552,8 +562,6 @@ Task("BuildVscode")
     });
 
     // Build VscodeTestLib + VscodeTestMacro (for LSP project reference resolution testing)
-    // Stage1 compiler ICEs on MatchFailureException when using Stage1's Nemerle.dll.
-    // Fallback: try boot first (boot Nemerle.dll is known-good), then Stage1.
     foreach (var proj in new[] { "snippets/VscodeTest/VscodeTestLib/VscodeTestLib.nproj", "snippets/VscodeTest/VscodeTestMacro/VscodeTestMacro.nproj" })
     {
         try
@@ -562,12 +570,12 @@ Task("BuildVscode")
                 Configuration = configuration,
                 MSBuildSettings = new DotNetMSBuildSettings()
                     .SetConfiguration(configuration)
-                    .WithProperty("Nemerle", absBoot)
+                    .WithProperty("Nemerle", absNugetBuild)
             });
         }
         catch
         {
-            Warning($"Skipping {proj} — compiler ICE, VscodeTest projects optional for plugin install");
+            Warning($"Skipping {proj} — compilation failed, VscodeTest projects optional for plugin install");
         }
     }
 

@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10341\build</Nemerle>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <OutputType>Library</OutputType>
@@ -26,12 +26,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="$(Nemerle)\Nemerle.dll">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="$(Nemerle)\Nemerle.Compiler.dll">
-      <Private>True</Private>
-    </Reference>
+    <Reference Include="Nemerle" />
+    <Reference Include="Nemerle.Compiler" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10341" />
   </ItemGroup>
 
   <ItemGroup>

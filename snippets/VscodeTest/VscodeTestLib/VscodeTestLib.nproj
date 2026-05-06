@@ -1,12 +1,16 @@
 <Project>
   <PropertyGroup>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(MSBuildProjectDirectory)\..\..\..\boot</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10341\build</Nemerle>
     <OutputType>Library</OutputType>
     <AssemblyName>VscodeTestLib</AssemblyName>
     <NoStdLib>true</NoStdLib>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <Import Project="$(Nemerle)\Nemerle.Sdk.props" />
-  <ItemGroup><Compile Include="*.n" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="*.n" />
+    <Reference Include="Nemerle" />
+    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10341" />
+  </ItemGroup>
   <Import Project="$(Nemerle)\Nemerle.Sdk.targets" />
 </Project>
