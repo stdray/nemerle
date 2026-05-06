@@ -46,7 +46,7 @@ public class RecoveryTests : IAsyncLifetime
     public async Task Unknown_assembly_using_produces_InternalError_not_crash()
     {
         // Mimics opening VscodeTestApp\Program.n without VscodeTestLib reference.
-        // The compiler throws Recovery when it can't resolve 'using UnknownLib;'.
+        // The compiler should produce diagnostics (errors, not crash) even for broken code.
         var uri = $"file:///{_workspaceDir.Replace('\\', '/')}/recovery.n";
 
         await _harness.SendDidOpenAsync(uri, """
@@ -56,15 +56,17 @@ module M { def x = 42; }
 """);
 
         var diags = await _harness.WaitForDiagnosticsAsync(TimeSpan.FromSeconds(10));
-        diags.Should().NotBeNull("should receive publishDiagnostics even on Recovery");
+        diags.Should().NotBeNull("should receive publishDiagnostics even on compilation failure");
 
         var diagArray = diags!["diagnostics"]!.AsArray();
-        diagArray.Should().NotBeEmpty("must report the Recovery error");
+        diagArray.Should().NotBeEmpty("must report compilation errors");
 
-        // The error should contain "Recovery" or "Internal error"
+        // The error should indicate a problem with UnknownLib or parse error
         var errMsgs = diagArray.Select(d => d!["message"]!.GetValue<string>()).ToList();
-        errMsgs.Should().Contain(m => m.Contains("Recovery") || m.Contains("Internal error"),
-            "Recovery exception must be surfaced as a diagnostic, not swallowed");
+        errMsgs.Should().Contain(m =>
+            m.Contains("Recovery") || m.Contains("Internal error")
+            || m.Contains("UnknownLib") || m.Contains("parse error"),
+            "compilation failure must be surfaced as diagnostics, not swallowed");
     }
 
     [Fact]

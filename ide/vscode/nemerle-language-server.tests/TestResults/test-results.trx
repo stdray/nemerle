@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="709663f3-341a-430c-8b74-fa4893aba42d" name="stdray@PEKAKEK 2026-05-06 15:30:59" runUser="PEKAKEK\stdray" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-05-06T15:30:59.7951433+03:00" queuing="2026-05-06T15:30:59.7951435+03:00" start="2026-05-06T15:30:56.5328263+03:00" finish="2026-05-06T15:31:11.7085231+03:00" />
+  <TestSettings name="default" id="77dc6131-3364-4509-90ee-2cbe04fa7764">
+    <Deployment runDeploymentRoot="stdray_PEKAKEK_2026-05-06_15_30_59" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="fcac8bd1-b881-47d8-8e9a-9aa2c8952948" testId="309bea1c-bd75-99e2-fc69-62c7fb75626c" testName="Nemerle.LanguageServer.Tests.CompletionTests.Filters_by_prefix" computerName="PEKAKEK" duration="00:00:00.2911936" startTime="2026-05-06T15:30:59.5638665+03:00" endTime="2026-05-06T15:31:02.0829164+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fcac8bd1-b881-47d8-8e9a-9aa2c8952948" />
+    <UnitTestResult executionId="bb332e1c-ed6b-4e32-957d-5dc00b0fa63e" testId="0b8660c9-a13e-f2d8-4027-369fe220107e" testName="Nemerle.LanguageServer.Tests.IntegrationTests.Multiple_documents_in_workspace" computerName="PEKAKEK" duration="00:00:00.8097448" startTime="2026-05-06T15:31:02.9794346+03:00" endTime="2026-05-06T15:31:06.0111377+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bb332e1c-ed6b-4e32-957d-5dc00b0fa63e" />
+    <UnitTestResult executionId="d0efb05b-15fa-471a-8d70-7320dbd33a5d" testId="79bc3e62-4a6d-8b06-1151-0bddde365d35" testName="Nemerle.LanguageServer.Tests.RecoveryTests.NprojLoader_resolves_project_reference_paths" computerName="PEKAKEK" duration="00:00:00.3265397" startTime="2026-05-06T15:31:07.0691287+03:00" endTime="2026-05-06T15:31:09.6723121+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d0efb05b-15fa-471a-8d70-7320dbd33a5d" />
+    <UnitTestResult executionId="09dbe8af-4f67-46a6-bcea-5dc6ba5585f2" testId="a1bab25c-d761-7e4c-cab8-5529ad857f67" testName="Nemerle.LanguageServer.Tests.IntegrationTests.Server_handles_rapid_document_changes" computerName="PEKAKEK" duration="00:00:01.0338151" startTime="2026-05-06T15:31:06.0115003+03:00" endTime="2026-05-06T15:31:09.2648294+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="09dbe8af-4f67-46a6-bcea-5dc6ba5585f2" />
+    <UnitTestResult executionId="7a763fe4-9dea-4581-b9b1-1e893061226b" testId="3ce0b338-a514-8e24-2f6e-fad8def7e88b" testName="Nemerle.LanguageServer.Tests.DiagnosticsTests.Parse_error_diagnostics_has_correct_range" computerName="PEKAKEK" duration="00:00:00.4034092" startTime="2026-05-06T15:31:02.8377818+03:00" endTime="2026-05-06T15:31:05.4605216+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7a763fe4-9dea-4581-b9b1-1e893061226b" />
+    <UnitTestResult executionId="cffe5436-06db-4b4c-9210-427403aa0bf9" testId="371b0393-f86a-b50e-08f3-d3e8639724c5" testName="Nemerle.LanguageServer.Tests.RecoveryTests.Hover_still_works_despite_Recovery_error" computerName="PEKAKEK" duration="00:00:00.2315313" startTime="2026-05-06T15:31:04.6177963+03:00" endTime="2026-05-06T15:31:07.0689554+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cffe5436-06db-4b4c-9210-427403aa0bf9" />
+    <UnitTestResult executionId="f833729f-31aa-429e-a845-3186a53f5bc0" testId="4c64f46f-6c5a-d7eb-ae17-e91fdc77e7ee" testName="Nemerle.LanguageServer.Tests.DiagnosticsTests.Multiple_diagnostics_for_multiple_errors" computerName="PEKAKEK" duration="00:00:00.9207556" startTime="2026-05-06T15:30:56.8479763+03:00" endTime="2026-05-06T15:31:00.0215963+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f833729f-31aa-429e-a845-3186a53f5bc0" />
+    <UnitTestResult executionId="08da2303-31f4-4631-9ca5-54e6da446dd8" testId="8ee8a7d8-5ea4-d246-b02d-c210b49e0d1f" testName="Nemerle.LanguageServer.Tests.RecoveryTests.Unknown_assembly_using_produces_InternalError_not_crash" computerName="PEKAKEK" duration="00:00:00.8066413" startTime="2026-05-06T15:31:01.5984095+03:00" endTime="2026-05-06T15:31:04.6152160+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="08da2303-31f4-4631-9ca5-54e6da446dd8">
+      <Output>
+        <ErrorInfo>
+          <Message>Expected errMsgs {"parse error near keyword `def': expecting type declaration", "parse error near identifier `x': unexpected token after class member (you forget a closing bracket?)."} to have an item matching (m.Contains("Recovery") OrElse m.Contains("Internal error")) because Recovery exception must be surfaced as a diagnostic, not swallowed.</Message>
+          <StackTrace>   at FluentAssertions.Execution.LateBoundTestFramework.Throw(String message)&#xD;
+   at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)&#xD;
+   at FluentAssertions.Execution.AssertionScope.AddPreFormattedFailure(String formattedFailureMessage)&#xD;
+   at FluentAssertions.Execution.AssertionChain.FailWith(Func`1 getFailureReason)&#xD;
+   at FluentAssertions.Execution.AssertionChain.FailWith(Func`1 getFailureReason)&#xD;
+   at FluentAssertions.Execution.AssertionChain.FailWith(String message, Object[] args)&#xD;
+   at FluentAssertions.Collections.GenericCollectionAssertions`3.Contain(Expression`1 predicate, String because, Object[] becauseArgs)&#xD;
+   at Nemerle.LanguageServer.Tests.RecoveryTests.Unknown_assembly_using_produces_InternalError_not_crash() in D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\RecoveryTests.cs:line 66&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e848aa97-9d42-4ff5-b9be-86ebb6e5fa61" testId="fa5c199e-20fc-77f4-b439-0943f36e5e19" testName="Nemerle.LanguageServer.Tests.CompletionTests.Includes_stdlib_types" computerName="PEKAKEK" duration="00:00:00.4459193" startTime="2026-05-06T15:30:56.8485906+03:00" endTime="2026-05-06T15:30:59.5587128+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e848aa97-9d42-4ff5-b9be-86ebb6e5fa61" />
+    <UnitTestResult executionId="2782572f-f31d-4a91-877d-93bf76c1a2a3" testId="a10a778e-52f7-406e-fb35-78388e8fe50d" testName="Nemerle.LanguageServer.Tests.CompletionTests.Returns_CompletionList_structure" computerName="PEKAKEK" duration="00:00:00.2006469" startTime="2026-05-06T15:31:02.0832487+03:00" endTime="2026-05-06T15:31:04.5031752+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2782572f-f31d-4a91-877d-93bf76c1a2a3" />
+    <UnitTestResult executionId="4d93fdfa-47cb-40b0-8ee5-695e19f6900d" testId="c80d283c-f869-f176-5396-5e8ae1144c2b" testName="Nemerle.LanguageServer.Tests.RecoveryTests.ProjectReference_resolved_to_DLL_prevents_Recovery" computerName="PEKAKEK" duration="00:00:02.4858754" startTime="2026-05-06T15:30:56.8485538+03:00" endTime="2026-05-06T15:31:01.5978965+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4d93fdfa-47cb-40b0-8ee5-695e19f6900d" />
+    <UnitTestResult executionId="da39deec-6279-48b5-b0e9-786c5caa7254" testId="884a13a2-6c92-327c-91f4-71ed87f3052e" testName="Nemerle.LanguageServer.Tests.IntegrationTests.Completion_after_dot_in_module" computerName="PEKAKEK" duration="00:00:00.0629461" startTime="2026-05-06T15:31:09.2653068+03:00" endTime="2026-05-06T15:31:11.5513518+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="da39deec-6279-48b5-b0e9-786c5caa7254" />
+    <UnitTestResult executionId="cc9214bc-561b-4e28-9751-04c5e536498c" testId="c6af2889-d00a-87b9-2aa8-1d9d98e30d5b" testName="Nemerle.LanguageServer.Tests.CompletionTests.Includes_local_identifiers" computerName="PEKAKEK" duration="00:00:00.0722698" startTime="2026-05-06T15:31:04.5037402+03:00" endTime="2026-05-06T15:31:06.7863367+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cc9214bc-561b-4e28-9751-04c5e536498c" />
+    <UnitTestResult executionId="6d61ae67-5c6f-4d25-a225-32ebcb6b4f23" testId="93e8b61d-d8b3-8786-a272-2ba8f9078a95" testName="Nemerle.LanguageServer.Tests.IntegrationTests.Change_text_updates_diagnostics" computerName="PEKAKEK" duration="00:00:01.1871248" startTime="2026-05-06T15:30:59.5639411+03:00" endTime="2026-05-06T15:31:02.9792772+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6d61ae67-5c6f-4d25-a225-32ebcb6b4f23" />
+    <UnitTestResult executionId="ec2e0106-07b9-4c1b-b452-9999f6e1e0cc" testId="d6712de9-2fd8-c374-5fde-1aeaf752fbb1" testName="Nemerle.LanguageServer.Tests.CompletionTests.Returns_keywords_when_no_prefix" computerName="PEKAKEK" duration="00:00:00.0582036" startTime="2026-05-06T15:31:06.7865811+03:00" endTime="2026-05-06T15:31:09.0607643+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ec2e0106-07b9-4c1b-b452-9999f6e1e0cc" />
+    <UnitTestResult executionId="2855efd1-83c4-4f1e-9ea0-10eb7e4da4ec" testId="94a5c668-3def-58e4-3c36-09a4ac3c40e3" testName="Nemerle.LanguageServer.Tests.IntegrationTests.Completion_includes_stdlib_keywords" computerName="PEKAKEK" duration="00:00:00.4473488" startTime="2026-05-06T15:30:56.8485802+03:00" endTime="2026-05-06T15:30:59.5607509+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2855efd1-83c4-4f1e-9ea0-10eb7e4da4ec" />
+    <UnitTestResult executionId="276ec71b-d628-4359-82a4-c8a3006ad4b7" testId="7227059d-01f4-2cd5-0e1a-33c0b5c3fe11" testName="Nemerle.LanguageServer.Tests.DiagnosticsTests.Reports_diagnostics_for_opened_file" computerName="PEKAKEK" duration="00:00:00.5956414" startTime="2026-05-06T15:31:00.0217481+03:00" endTime="2026-05-06T15:31:02.8374280+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="276ec71b-d628-4359-82a4-c8a3006ad4b7" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Nemerle.LanguageServer.Tests.RecoveryTests.ProjectReference_resolved_to_DLL_prevents_Recovery" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="c80d283c-f869-f176-5396-5e8ae1144c2b">
+      <Execution id="4d93fdfa-47cb-40b0-8ee5-695e19f6900d" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.RecoveryTests" name="ProjectReference_resolved_to_DLL_prevents_Recovery" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.RecoveryTests.Hover_still_works_despite_Recovery_error" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="371b0393-f86a-b50e-08f3-d3e8639724c5">
+      <Execution id="cffe5436-06db-4b4c-9210-427403aa0bf9" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.RecoveryTests" name="Hover_still_works_despite_Recovery_error" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.DiagnosticsTests.Reports_diagnostics_for_opened_file" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="7227059d-01f4-2cd5-0e1a-33c0b5c3fe11">
+      <Execution id="276ec71b-d628-4359-82a4-c8a3006ad4b7" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.DiagnosticsTests" name="Reports_diagnostics_for_opened_file" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.CompletionTests.Includes_stdlib_types" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="fa5c199e-20fc-77f4-b439-0943f36e5e19">
+      <Execution id="e848aa97-9d42-4ff5-b9be-86ebb6e5fa61" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.CompletionTests" name="Includes_stdlib_types" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.DiagnosticsTests.Multiple_diagnostics_for_multiple_errors" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="4c64f46f-6c5a-d7eb-ae17-e91fdc77e7ee">
+      <Execution id="f833729f-31aa-429e-a845-3186a53f5bc0" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.DiagnosticsTests" name="Multiple_diagnostics_for_multiple_errors" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.CompletionTests.Returns_CompletionList_structure" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="a10a778e-52f7-406e-fb35-78388e8fe50d">
+      <Execution id="2782572f-f31d-4a91-877d-93bf76c1a2a3" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.CompletionTests" name="Returns_CompletionList_structure" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.CompletionTests.Filters_by_prefix" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="309bea1c-bd75-99e2-fc69-62c7fb75626c">
+      <Execution id="fcac8bd1-b881-47d8-8e9a-9aa2c8952948" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.CompletionTests" name="Filters_by_prefix" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.IntegrationTests.Completion_includes_stdlib_keywords" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="94a5c668-3def-58e4-3c36-09a4ac3c40e3">
+      <Execution id="2855efd1-83c4-4f1e-9ea0-10eb7e4da4ec" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.IntegrationTests" name="Completion_includes_stdlib_keywords" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.CompletionTests.Includes_local_identifiers" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="c6af2889-d00a-87b9-2aa8-1d9d98e30d5b">
+      <Execution id="cc9214bc-561b-4e28-9751-04c5e536498c" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.CompletionTests" name="Includes_local_identifiers" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.CompletionTests.Returns_keywords_when_no_prefix" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="d6712de9-2fd8-c374-5fde-1aeaf752fbb1">
+      <Execution id="ec2e0106-07b9-4c1b-b452-9999f6e1e0cc" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.CompletionTests" name="Returns_keywords_when_no_prefix" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.IntegrationTests.Change_text_updates_diagnostics" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="93e8b61d-d8b3-8786-a272-2ba8f9078a95">
+      <Execution id="6d61ae67-5c6f-4d25-a225-32ebcb6b4f23" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.IntegrationTests" name="Change_text_updates_diagnostics" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.IntegrationTests.Multiple_documents_in_workspace" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="0b8660c9-a13e-f2d8-4027-369fe220107e">
+      <Execution id="bb332e1c-ed6b-4e32-957d-5dc00b0fa63e" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.IntegrationTests" name="Multiple_documents_in_workspace" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.IntegrationTests.Server_handles_rapid_document_changes" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="a1bab25c-d761-7e4c-cab8-5529ad857f67">
+      <Execution id="09dbe8af-4f67-46a6-bcea-5dc6ba5585f2" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.IntegrationTests" name="Server_handles_rapid_document_changes" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.IntegrationTests.Completion_after_dot_in_module" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="884a13a2-6c92-327c-91f4-71ed87f3052e">
+      <Execution id="da39deec-6279-48b5-b0e9-786c5caa7254" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.IntegrationTests" name="Completion_after_dot_in_module" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.RecoveryTests.Unknown_assembly_using_produces_InternalError_not_crash" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="8ee8a7d8-5ea4-d246-b02d-c210b49e0d1f">
+      <Execution id="08da2303-31f4-4631-9ca5-54e6da446dd8" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.RecoveryTests" name="Unknown_assembly_using_produces_InternalError_not_crash" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.RecoveryTests.NprojLoader_resolves_project_reference_paths" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="79bc3e62-4a6d-8b06-1151-0bddde365d35">
+      <Execution id="d0efb05b-15fa-471a-8d70-7320dbd33a5d" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.RecoveryTests" name="NprojLoader_resolves_project_reference_paths" />
+    </UnitTest>
+    <UnitTest name="Nemerle.LanguageServer.Tests.DiagnosticsTests.Parse_error_diagnostics_has_correct_range" storage="d:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\release\net8.0\nemerle.languageserver.tests.dll" id="3ce0b338-a514-8e24-2f6e-fad8def7e88b">
+      <Execution id="7a763fe4-9dea-4581-b9b1-1e893061226b" />
+      <TestMethod codeBase="D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\bin\Release\net8.0\Nemerle.LanguageServer.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Nemerle.LanguageServer.Tests.DiagnosticsTests" name="Parse_error_diagnostics_has_correct_range" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="309bea1c-bd75-99e2-fc69-62c7fb75626c" executionId="fcac8bd1-b881-47d8-8e9a-9aa2c8952948" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0b8660c9-a13e-f2d8-4027-369fe220107e" executionId="bb332e1c-ed6b-4e32-957d-5dc00b0fa63e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="79bc3e62-4a6d-8b06-1151-0bddde365d35" executionId="d0efb05b-15fa-471a-8d70-7320dbd33a5d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a1bab25c-d761-7e4c-cab8-5529ad857f67" executionId="09dbe8af-4f67-46a6-bcea-5dc6ba5585f2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3ce0b338-a514-8e24-2f6e-fad8def7e88b" executionId="7a763fe4-9dea-4581-b9b1-1e893061226b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="371b0393-f86a-b50e-08f3-d3e8639724c5" executionId="cffe5436-06db-4b4c-9210-427403aa0bf9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4c64f46f-6c5a-d7eb-ae17-e91fdc77e7ee" executionId="f833729f-31aa-429e-a845-3186a53f5bc0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8ee8a7d8-5ea4-d246-b02d-c210b49e0d1f" executionId="08da2303-31f4-4631-9ca5-54e6da446dd8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fa5c199e-20fc-77f4-b439-0943f36e5e19" executionId="e848aa97-9d42-4ff5-b9be-86ebb6e5fa61" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a10a778e-52f7-406e-fb35-78388e8fe50d" executionId="2782572f-f31d-4a91-877d-93bf76c1a2a3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c80d283c-f869-f176-5396-5e8ae1144c2b" executionId="4d93fdfa-47cb-40b0-8ee5-695e19f6900d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="884a13a2-6c92-327c-91f4-71ed87f3052e" executionId="da39deec-6279-48b5-b0e9-786c5caa7254" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c6af2889-d00a-87b9-2aa8-1d9d98e30d5b" executionId="cc9214bc-561b-4e28-9751-04c5e536498c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="93e8b61d-d8b3-8786-a272-2ba8f9078a95" executionId="6d61ae67-5c6f-4d25-a225-32ebcb6b4f23" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d6712de9-2fd8-c374-5fde-1aeaf752fbb1" executionId="ec2e0106-07b9-4c1b-b452-9999f6e1e0cc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="94a5c668-3def-58e4-3c36-09a4ac3c40e3" executionId="2855efd1-83c4-4f1e-9ea0-10eb7e4da4ec" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7227059d-01f4-2cd5-0e1a-33c0b5c3fe11" executionId="276ec71b-d628-4359-82a4-c8a3006ad4b7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="17" executed="17" passed="16" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.0.2+dd36e86129 (64-bit .NET 8.0.26)&#xD;
+[xUnit.net 00:00:00.03]   Discovering: Nemerle.LanguageServer.Tests&#xD;
+[xUnit.net 00:00:00.05]   Discovered:  Nemerle.LanguageServer.Tests&#xD;
+[xUnit.net 00:00:00.06]   Starting:    Nemerle.LanguageServer.Tests&#xD;
+[xUnit.net 00:00:07.84]       Expected errMsgs {"parse error near keyword `def': expecting type declaration", "parse error near identifier `x': unexpected token after class member (you forget a closing bracket?)."} to have an item matching (m.Contains("Recovery") OrElse m.Contains("Internal error")) because Recovery exception must be surfaced as a diagnostic, not swallowed.&#xD;
+[xUnit.net 00:00:07.84]       Stack Trace:&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.LateBoundTestFramework.Throw(String message)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.DefaultAssertionStrategy.HandleFailure(String message)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.AssertionScope.AddPreFormattedFailure(String formattedFailureMessage)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.AssertionChain.FailWith(Func`1 getFailureReason)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.AssertionChain.FailWith(Func`1 getFailureReason)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Execution.AssertionChain.FailWith(String message, Object[] args)&#xD;
+[xUnit.net 00:00:07.84]            at FluentAssertions.Collections.GenericCollectionAssertions`3.Contain(Expression`1 predicate, String because, Object[] becauseArgs)&#xD;
+[xUnit.net 00:00:07.84]         D:\prj\clones\nemerle\ide\vscode\nemerle-language-server.tests\RecoveryTests.cs(66,0): at Nemerle.LanguageServer.Tests.RecoveryTests.Unknown_assembly_using_produces_InternalError_not_crash()&#xD;
+[xUnit.net 00:00:07.84]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:14.78]   Finished:    Nemerle.LanguageServer.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="PEKAKEK" outcome="Error" timestamp="2026-05-06T15:31:04.6164413+03:00">
+        <Text>[xUnit.net 00:00:07.84]     Nemerle.LanguageServer.Tests.RecoveryTests.Unknown_assembly_using_produces_InternalError_not_crash [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>
