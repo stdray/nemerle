@@ -25,13 +25,17 @@
     <Content Include="$(Stage3Dir)\Nemerle.Macros.dll"      PackagePath="lib\netstandard2.0\" />
     <Content Include="$(Stage3Dir)\dnlib.dll"               PackagePath="lib\netstandard2.0\" />
 
-    <!-- build/ — MSBuild SDK for .nproj auto-import -->
+    <!-- build/ — MSBuild SDK for .nproj auto-import + compiler toolchain -->
     <Content Include="$(RepoRoot)\sdk/Nemerle.Sdk.props"       PackagePath="build\" />
     <Content Include="$(RepoRoot)\sdk/Nemerle.Sdk.targets"     PackagePath="build\" />
     <Content Include="$(RepoRoot)\sdk/Nemerle.MSBuild.targets" PackagePath="build\" />
     <Content Include="$(MSBuildTaskOutput)\Nemerle.MSBuild.Tasks.dll"         PackagePath="build\" />
     <Content Include="$(Stage3Dir)\ncc-core.dll"              PackagePath="build\" />
     <Content Include="$(Stage3Dir)\ncc-core.runtimeconfig.json" PackagePath="build\" />
+    <Content Include="$(Stage3Dir)\Nemerle.Compiler.dll"      PackagePath="build\" />
+    <Content Include="$(Stage3Dir)\Nemerle.dll"               PackagePath="build\" />
+    <Content Include="$(Stage3Dir)\Nemerle.Macros.dll"        PackagePath="build\" />
+    <Content Include="$(Stage3Dir)\dnlib.dll"                 PackagePath="build\" />
 
     <!-- buildTransitive/ — for transitive NuGet SDK flow -->
     <Content Include="$(RepoRoot)\sdk/Nemerle.Sdk.props"       PackagePath="buildTransitive\" />

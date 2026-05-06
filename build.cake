@@ -540,8 +540,23 @@ Task("BuildVscode")
     var absNugetBuild = System.IO.Path.GetFullPath(
         System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".nuget/packages/stdray.nemerle.compiler/1.3.0-rc.10341/build")).Replace('\\', '/');
+            ".nuget/packages/stdray.nemerle.compiler/1.3.0-rc.10346/build")).Replace('\\', '/');
     EnsureDirectoryExists($"{testOut}/Vscode");
+
+    // Restore first — ensures NuGet SDK directory exists before .nproj imports it
+    foreach (var proj in new[] {
+        "ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj",
+        "ide/vscode/nemerle-language-server/Nemerle.LanguageServer.csproj",
+        "snippets/VscodeTest/VscodeTestLib/VscodeTestLib.nproj",
+        "snippets/VscodeTest/VscodeTestMacro/VscodeTestMacro.nproj",
+        "snippets/VscodeTest/VscodeTestApp/VscodeTestApp.nproj"
+    })
+    {
+        DotNetRestore(proj, new DotNetRestoreSettings {
+            MSBuildSettings = new DotNetMSBuildSettings()
+                .WithProperty("Nemerle", absNugetBuild)
+        });
+    }
 
     // Build Nemerle.Language.Core.dll — uses PackageReference stdray.Nemerle.Compiler,
     // SDK from NuGet build/ directory. Integration knows NOTHING about compiler build.
@@ -550,7 +565,6 @@ Task("BuildVscode")
         MSBuildSettings = new DotNetMSBuildSettings()
             .SetConfiguration(configuration)
             .WithProperty("OutputPath", System.IO.Path.GetFullPath($"{testOut}/Vscode").Replace('\\', '/') + "/")
-            .WithProperty("NemerlePackageBuildDir", absNugetBuild)
             .WithProperty("Nemerle", absNugetBuild)
     });
 
