@@ -297,7 +297,7 @@ Task("NuGetPush")
     if (string.IsNullOrWhiteSpace(apiKey))
         throw new Exception("NUGET_API_KEY environment variable is not set. Use 'nuget.org/account/apikeys' to create one.");
 
-    var packages = GetFiles("./artifacts/Nemerle.Compiler.*.nupkg");
+    var packages = GetFiles("./artifacts/stdray.Nemerle.Compiler.*.nupkg");
     foreach (var pkg in packages)
     {
         DotNetNuGetPush(pkg, new DotNetNuGetPushSettings {

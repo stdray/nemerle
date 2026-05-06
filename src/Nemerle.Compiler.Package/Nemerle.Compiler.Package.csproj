@@ -5,7 +5,7 @@
     <IsPackable>true</IsPackable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <NoWarn>NU5100;NU5128;NU5129;NU5017</NoWarn>
-    <PackageId>Nemerle.Compiler</PackageId>
+    <PackageId>stdray.Nemerle.Compiler</PackageId>
     <Description>Nemerle compiler, standard library, macros, and MSBuild SDK</Description>
     <Authors>Nemerle Project</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
