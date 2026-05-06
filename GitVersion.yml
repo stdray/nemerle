@@ -6,7 +6,7 @@ branches:
   reanemerle:
     regex: '^reanemerle$'
     increment: Patch
-    label: ''
+    label: 'rc'
     is-main-branch: true
 
   feature:
