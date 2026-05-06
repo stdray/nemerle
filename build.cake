@@ -540,7 +540,7 @@ Task("BuildVscode")
     var absNugetBuild = System.IO.Path.GetFullPath(
         System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".nuget/packages/stdray.nemerle.compiler/1.3.0-rc.10346/build")).Replace('\\', '/');
+            ".nuget/packages/stdray.nemerle.compiler/1.3.0-rc.10347/build")).Replace('\\', '/');
     EnsureDirectoryExists($"{testOut}/Vscode");
 
     // Restore first — ensures NuGet SDK directory exists before .nproj imports it
