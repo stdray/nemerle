@@ -146,8 +146,12 @@ Task("PrepareSdk")
     .IsDependentOn("FixBoot")
     .Does(() =>
 {
-    foreach (var f in new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" })
+    var sdkFiles = new[] { "Nemerle.Sdk.props", "Nemerle.Sdk.targets", "Nemerle.MSBuild.targets" };
+    foreach (var f in sdkFiles)
+    {
         CopyFile($"sdk/{f}", $"{nccBoot}/{f}");
+        CopyFile($"sdk/{f}", $"{stage1Out}/{f}");
+    }
 });
 
 Task("Stage1")

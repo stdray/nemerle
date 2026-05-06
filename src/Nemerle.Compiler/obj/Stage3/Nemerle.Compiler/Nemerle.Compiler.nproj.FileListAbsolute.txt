@@ -1,8 +1,0 @@
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.Compiler.xml
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.Compiler.deps.json
-D:\prj\clones\nemerle\bin\Release\Stage3\Nemerle.Compiler.dll
-D:\prj\clones\nemerle\src\Nemerle.Compiler\obj\Stage3\Nemerle.Compiler\Nemerle.Compiler.nproj.AssemblyReference.cache
-D:\prj\clones\nemerle\src\Nemerle.Compiler\obj\Stage3\Nemerle.Compiler\Nemerle.Compiler.nproj.CoreCompileInputs.cache
-D:\prj\clones\nemerle\src\Nemerle.Compiler\obj\Stage3\Nemerle.Compiler\Nemerle.Compiler.sourcelink.json
-D:\prj\clones\nemerle\src\Nemerle.Compiler\obj\Stage3\Nemerle.Compiler\Nemerle..DE96D88A.Up2Date
-D:\prj\clones\nemerle\src\Nemerle.Compiler\obj\Stage3\Nemerle.Compiler\Nemerle.Compiler.dll

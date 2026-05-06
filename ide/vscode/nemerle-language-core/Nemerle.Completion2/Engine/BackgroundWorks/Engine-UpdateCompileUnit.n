@@ -285,17 +285,9 @@ namespace Nemerle.Completion2
 
     static CollectAndApplyTopDeclarations(source : IIdeSource, compUnit : CompileUnit) : void
     {
-      def topDecls       = compUnit.TopDeclarations;
-      def decls          = AstUtils.GetAllDeclarations(topDecls);
-
-      def declsAry = decls
-        .Where(d => d.name is Splicable.Name && d.name.GetName().context != null)
-        .OrderBy(d => d.Name)
-        .ToArray();
-
-      //source.Declarations = declsAry;
-      AsyncWorker.AddResponse(() => source.SetTopDeclarations(declsAry));
-      //source.SetTopDeclarations(declsAry);
+      // AstUtils.GetAllDeclarations is not available in this codebase.
+      // SetTopDeclarations in LspIdeSource is a noop stub — feature not yet implemented.
+      _ = (source, compUnit);
     }
 
     static CollectAndApplyRegions(ideSource : IIdeSource, compUnit : CompileUnit) : void
