@@ -8,7 +8,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsTestProject>true</IsTestProject>
     <ServerGarbageCollection>true</ServerGarbageCollection>
-    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot</NemerleBin>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,13 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\nemerle-language-server\Nemerle.LanguageServer.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Nemerle.Macros">
-      <HintPath>$(NemerleBin)\Nemerle.Macros.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

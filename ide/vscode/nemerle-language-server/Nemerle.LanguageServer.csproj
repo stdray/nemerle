@@ -9,7 +9,6 @@
     <RollForward>LatestMajor</RollForward>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <NemerleBin Condition="'$(NemerleBin)' == ''">$(MSBuildProjectDirectory)\..\..\..\boot</NemerleBin>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,28 +16,12 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
     <PackageReference Include="Microsoft.Build" Version="17.11.48" />
+    <PackageReference Include="stdray.Nemerle.Compiler" Version="0.0.1-reanemerle.1">
+      <ExcludeAssets>build;buildTransitive</ExcludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Nemerle">
-      <HintPath>$(NemerleBin)\Nemerle.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Nemerle.Compiler">
-      <HintPath>$(NemerleBin)\Nemerle.Compiler.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Nemerle.Macros">
-      <HintPath>$(NemerleBin)\Nemerle.Macros.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="dnlib">
-      <HintPath>$(NemerleBin)\dnlib.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Nemerle.Language.Core">
-      <HintPath>..\nemerle-language-core\bin\Release\Nemerle.Language.Core.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
+    <ProjectReference Include="..\nemerle-language-core\Nemerle.Language.Core.nproj" />
   </ItemGroup>
 </Project>

@@ -540,21 +540,15 @@ Task("BuildVscode")
     // Build Nemerle.Language.Core.dll (Nemerle, netstandard2.0) — use boot-dnlib as SDK (has props/targets)
     DotNetBuildOne("ide/vscode/nemerle-language-core/Nemerle.Language.Core.nproj", absBoot, $"{testOut}/Vscode", "obj/Tests/VscodeCore");
 
-    // Build nemerle-language-server (C#, net8.0)
+    // Build nemerle-language-server (C#, net8.0) — uses stdray.Nemerle.Compiler NuGet PackageReference
     DotNetBuild("ide/vscode/nemerle-language-server/Nemerle.LanguageServer.csproj", new DotNetBuildSettings {
         MSBuildSettings = new DotNetMSBuildSettings()
             .SetConfiguration(configuration)
-            .WithProperty("NemerleBin", absBoot + "/")
             .WithProperty("OutputPath", System.IO.Path.GetFullPath($"{testOut}/Vscode").Replace('\\', '/') + "/")
     });
 
-    // Copy dependencies from boot-dnlib and language-core output
-    foreach (var dll in new[] { "Nemerle.dll", "Nemerle.Compiler.dll", "Nemerle.Macros.dll", "dnlib.dll" })
-        CopyFile($"{nccBoot}/{dll}", $"{testOut}/Vscode/{dll}");
-
     // Build VscodeTestLib + VscodeTestMacro (for LSP project reference resolution testing)
     // Stage1 compiler required — boot compiler ICEs on MatchFailureException.
-    // Do NOT override OutputPath — ResolveProjectReferences expects bin\Release\*.dll.
     foreach (var proj in new[] { "snippets/VscodeTest/VscodeTestLib/VscodeTestLib.nproj", "snippets/VscodeTest/VscodeTestMacro/VscodeTestMacro.nproj" })
     {
         DotNetBuild(proj, new DotNetBuildSettings {
