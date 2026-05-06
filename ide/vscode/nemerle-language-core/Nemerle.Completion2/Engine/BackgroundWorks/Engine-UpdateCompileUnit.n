@@ -285,9 +285,28 @@ namespace Nemerle.Completion2
 
     static CollectAndApplyTopDeclarations(source : IIdeSource, compUnit : CompileUnit) : void
     {
-      // AstUtils.GetAllDeclarations is not available in this codebase.
-      // SetTopDeclarations in LspIdeSource is a noop stub — feature not yet implemented.
-      _ = (source, compUnit);
+      // NOT_IMPLEMENTED: DocumentSymbol / outline view (see doc/vscode-plan.md 1.5.8)
+      // AstUtils.GetAllDeclarations was in the original VS2010 integration but not ported.
+      // SetTopDeclarations in LspIdeSource is a noop stub waiting for implementation.
+      def topDecls       = compUnit.TopDeclarations;
+      def decls          = GetTopLevelDeclarationNames(topDecls);
+
+      def declsAry = decls
+        .Where(d => d.name is Splicable.Name && d.name.GetName().context != null)
+        .OrderBy(d => d.Name)
+        .ToArray();
+
+      AsyncWorker.AddResponse(() => source.SetTopDeclarations(declsAry));
+    }
+
+    /// <summary>Dead code — DocumentSymbol was reimplemented via regex in DocumentSymbols.cs (1.5.8 done).
+    /// AstUtils.GetAllDeclarations was in the original VS2010 IDE integration but not ported.
+    /// If the AST-based approach is needed later, implement GetTopLevelDeclarationNames
+    /// by porting the TopDeclaration traversal from peg-parser AstUtils.</summary>
+    static GetTopLevelDeclarationNames(topDecls : list[TopDeclaration]) : array[TopDeclaration]
+    {
+      _ = topDecls;
+      array(0)
     }
 
     static CollectAndApplyRegions(ideSource : IIdeSource, compUnit : CompileUnit) : void

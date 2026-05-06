@@ -83,6 +83,28 @@ Status: server builds via PackageReference, 13/13 LSP tests pass, syntax highlig
 - Cake — small tasks, one concern each. Use `DotNet*` aliases (not `DotNetCore*`).
 - **TypeScript/JS tooling:** use **bun** everywhere (`bun install`, `bunx tsc`, `bun test`). Do NOT use npm/npx.
 
+## Not-yet-implemented features — NO silent stubs
+
+**Never** replace missing functionality with a silent noop (`_ = (x, y);`, `return;`, empty stub).
+If a feature is not implemented:
+
+1. **Mark in source** with `NOT_IMPLEMENTED:` comment referencing the plan item (e.g. `doc/vscode-plan.md 1.5.8`)
+2. **Add stub function** that returns a sensible empty/trivial value — but keeps the call flow intact (so the structure is visible)
+3. **Update the plan** — mark the item as `[ ]`, add details of what's missing
+4. **Let it compile** — N10003 (unreferenced method) warnings on stubs are EXPECTED and OK
+
+Example:
+```n
+// NOT_IMPLEMENTED: DocumentSymbol (doc/vscode-plan.md 1.5.8)
+static GetTopLevelDeclarationNames(topDecls : list[TopDeclaration]) : array[TopDeclaration]
+{
+  _ = topDecls;
+  array(0)  // empty until traversal is ported from peg-parser AstUtils
+}
+```
+
+The caller remains unmodified, so when someone picks up the feature they see the exact call site and expected types.
+
 ## Commit convention
 
 - **Subject:** `type(scope): short description`, ≤ 72 chars, imperative mood, no trailing period.
