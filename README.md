@@ -1,6 +1,8 @@
 # What Is It
 
 [![Join the chat at https://gitter.im/rsdn/nemerle](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/rsdn/nemerle?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![CI](https://github.com/stdray/nemerle/actions/workflows/ci.yml/badge.svg)](https://github.com/stdray/nemerle/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/stdray.Nemerle.Compiler?label=NuGet)](https://www.nuget.org/packages/stdray.Nemerle.Compiler)
 
 Nemerle is a high-level statically-typed programming language for the .NET platform. It offers functional, object-oriented and imperative features. It has a simple C#-like syntax and a powerful meta-programming system.
 
