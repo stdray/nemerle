@@ -84,9 +84,7 @@ public class EngineHost
                 var manager = new ManagerClass(options);
                 ManagerClass.Instance = manager;
                 manager.InitOutput(TextWriter.Null);
-                // CompilerLog is not in the NuGet Nemerle.Compiler.dll yet.
-                // When NuGet is rebuilt with the instrumentation, this will activate:
-                // Nemerle.Compiler.CompilerLog.For(_logger);
+                Nemerle.Compiler.CompilerLog.For(_logger);
 
                 manager.MessageOccured += (_, msg) =>
                 {

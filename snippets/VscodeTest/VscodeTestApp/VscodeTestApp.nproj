@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10347\build</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10351\build</Nemerle>
     <OutputType>Exe</OutputType>
     <AssemblyName>VscodeTestApp</AssemblyName>
     <NoStdLib>true</NoStdLib>
@@ -10,7 +10,7 @@
   <ItemGroup>
     <Compile Include="*.n" />
     <Reference Include="Nemerle" />
-    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10347" />
+    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10351" />
     <ProjectReference Include="..\VscodeTestLib\VscodeTestLib.nproj">
       <Name>VscodeTestLib</Name>
     </ProjectReference>
