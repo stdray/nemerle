@@ -9,7 +9,7 @@ namespace Nemerle.Compiler
     /// compilation. Defaults to NullLogger — no logging unless configured.
     public mutable Instance : ILogger = NullLogger.Instance;
 
-    SetLogger(am_ : ILogger) : void
+    InitLogger(am_ : ILogger) : void
     {
       Instance = am_
     }

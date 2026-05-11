@@ -84,7 +84,7 @@ public class EngineHost
                 var manager = new ManagerClass(options);
                 ManagerClass.Instance = manager;
                 manager.InitOutput(TextWriter.Null);
-                Nemerle.Compiler.CompilerLog.SetLogger(_logger);
+                Nemerle.Compiler.CompilerLog.InitLogger(_logger);
 
                 manager.MessageOccured += (_, msg) =>
                 {
