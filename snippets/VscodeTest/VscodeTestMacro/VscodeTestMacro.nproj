@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10353\build</Nemerle>
+    <Nemerle Condition=" '$(Nemerle)' == '' ">$(USERPROFILE)\.nuget\packages\stdray.nemerle.compiler\1.3.0-rc.10354\build</Nemerle>
     <OutputType>Library</OutputType>
     <AssemblyName>VscodeTestMacro</AssemblyName>
     <NoStdLib>true</NoStdLib>
@@ -11,7 +11,7 @@
     <Compile Include="*.n" />
     <Reference Include="Nemerle" />
     <Reference Include="Nemerle.Compiler" />
-    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10353" />
+    <PackageReference Include="stdray.Nemerle.Compiler" Version="1.3.0-rc.10354" />
   </ItemGroup>
   <Import Project="$(Nemerle)\Nemerle.Sdk.targets" />
 </Project>
