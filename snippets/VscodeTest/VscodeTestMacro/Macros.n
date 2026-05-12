@@ -12,10 +12,8 @@ namespace VscodeTestMacro
     Inherited = true, AllowMultiple = false)]
   macro Greet(tb : TypeBuilder, name : string)
   {
-    def greeting = name;
-    def body = <[ $"$greeting from $(this.GetType())!" ]>;
     def method = <[ decl:
-      public Greet() : string { $body }
+      public Greet() : string { name }
     ]>;
     tb.Define(method);
   }
