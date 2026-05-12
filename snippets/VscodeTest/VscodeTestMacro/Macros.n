@@ -10,7 +10,7 @@ namespace VscodeTestMacro
   /// </summary>
   [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
     Inherited = true, AllowMultiple = false)]
-  macro Greet(tb : TypeBuilder, name : string)
+  macro Greet(_ : TypeBuilder, name : string)
   {
     def greeting = name;
     def body = <[ $"$greeting from $(this.GetType())!" ]>;

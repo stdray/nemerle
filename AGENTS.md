@@ -71,10 +71,18 @@ Status: server builds via PackageReference, 13/13 LSP tests pass, syntax highlig
 
 ## Documents
 
-- **`doc/plan.md`** — Russian. What was built, what remains.
+- **`doc/plan.md`** — Russian. What was built, what remains. **Keep checkbox statuses up to date** — mark `[x]` when done, add new `[ ]` for new tasks.
 - **`doc/decision-log.md`** — Russian. Architectural decisions, newest first.
 - **`doc/vscode-plan.md`** — VSCode extension implementation checklist. Keep checkbox statuses up to date.
-- All three are gitignored.
+- **`doc/findings.md`** — полезные находки (Nemerle-синтаксис, interop, URI-форматы, баги). Читать перед работой с Nemerle-кодом, чтобы не искать по 100 раз.
+- All four are tracked in git.
+
+## Plan management
+
+- **Планы — в `doc/plan.md`** с чекбоксами `[ ]`/`[x]`
+- После каждого коммита с выполненной задачей — обновлять статус
+- Новые подзадачи добавлять в соответствующий раздел, не переписывать старые
+- Перед началом новой крупной задачи — добавлять её план в `doc/plan.md`
 
 ## Coding style
 

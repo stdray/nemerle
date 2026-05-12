@@ -48,3 +48,20 @@
 - [ ] VSCode: Macro expansion via Virtual Documents
 - [ ] Автоматический NuGet push при релизных тегах (v1.3.0 и т.д.)
 
+## VSCode: Компиляторный IntelliSense (замена EngineBridge hover/definition)
+
+Цель: заменить Engine.BeginGetQuickTipInfo/GetGotoInfo на прямой доступ
+к TExpr-дереву компилятора из EngineHost. Устраняет null_tip и
+зависимость от асинхронного Engine.
+
+- [ ] 1. EngineHost: кешировать ManagerClass/TExpr после Run()
+- [ ] 2. EngineHost: FindTExprAt() — обход TExpr.Visit() по Location.Contains()
+- [ ] 3. EngineHost: MakeHoverMarkdown() — TExpr/IMember/LocalValue → Markdown
+- [ ] 4. EngineHost: GetHoverInfo(uri, line, col) — публичный метод
+- [ ] 5. EngineHost: GetDefinitionLocation(uri, line, col) — публичный метод
+- [ ] 6. ServerState: GetHoverAsync → _engine.GetHoverInfo() вместо EngineBridge
+- [ ] 7. ServerState: GetDefinitionAsync → _engine.GetDefinitionLocation()
+- [ ] 8. EngineBridge.n: удалить GetHoverText, GetDefinitions, Complete
+- [ ] 9. Тест: ServerHarness.SendHoverRequestAsync + CompilationTests на VscodeTestApp
+- [ ] 10. Проверить hover на string, Greet, tb — реальный тип + место определения
+- [ ] 11. Проверить definition (F12) — переход к определению
