@@ -139,9 +139,19 @@ namespace Nemerle.Completion2
           def location = Location(snap, pos);
           try
           {
-            def request = _engine.BeginGetQuickTipInfo(src, location);
-            _ = request.AsyncWaitHandle.WaitOne(10000);
-            if (request.QuickTipInfo != null) request.QuickTipInfo.Text else "error:null_tip"
+            // Try up to 3 times with increasing delays — Engine may need time to check methods
+            mutable result = "error:null_tip";
+            for (mutable attempt = 0; attempt < 3; attempt++)
+            {
+              def request = _engine.BeginGetQuickTipInfo(src, location);
+              _ = request.AsyncWaitHandle.WaitOne(5000);
+              when (request.QuickTipInfo != null)
+              {
+                result = request.QuickTipInfo.Text;
+                Nemerle.Imperative.Break()
+              }
+            }
+            result
           }
           catch { e => "error:" + e.Message }
         }

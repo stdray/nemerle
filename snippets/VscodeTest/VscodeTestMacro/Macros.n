@@ -19,11 +19,4 @@ namespace VscodeTestMacro
     ]>;
     tb.Define(method);
   }
-
-  [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
-    Inherited = true, AllowMultiple = true)]
-  macro LogCompile(tb : TypeBuilder, message : string)
-  {
-    Nemerle.IO.printf("Compile-time: %s\n", message);
-  }
 }

@@ -88,7 +88,7 @@ public class EngineHost
 
                 manager.MessageOccured += (loc, msg) =>
                 {
-                    _logger.LogWarning("Compiler: {Message}", msg ?? "(null)");
+                    _logger.LogWarning("Compiler: {Uri}: {Message}", uri, msg ?? "(null)");
                     if (msg != null)
                         lock (messages)
                             messages.Add(msg);
