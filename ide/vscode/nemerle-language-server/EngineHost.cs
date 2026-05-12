@@ -209,25 +209,29 @@ public class EngineHost
 
         try
         {
-            // Try compiler type lookup if available
+            // Try compiler type lookup
             var manager = _lastManager;
             if (manager != null)
             {
-                var ti = manager.LookupTypeInfo(word);
-                if (ti != null)
-                    return $"**`{word}`** — *type*\n\n{ti}";
-
-                var exactOpt = manager.NameTree?.LookupExactType(word);
-                if (exactOpt != null)
+                try
                 {
-                    try
+                    var ti = manager.LookupTypeInfo(word);
+                    if (ti != null)
+                        return $"**`{word}`** — *type*\n\n{ti}";
+                }
+                catch { }
+
+                try
+                {
+                    var exactOpt = manager.NameTree?.LookupExactType(word);
+                    if (exactOpt != null)
                     {
                         var val = exactOpt.GetType().GetProperty("Value")?.GetValue(exactOpt);
                         if (val != null)
-                            return $"**`{word}`** — *type*\n\n{val}";
+                            return $"**`{word}`** — *compiler type*\n\n{val}";
                     }
-                    catch { }
                 }
+                catch { }
             }
 
             // Fallback: try System.Type
