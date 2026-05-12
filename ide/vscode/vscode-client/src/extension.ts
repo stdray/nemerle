@@ -33,7 +33,8 @@ let macroProvider: NemerleMacroContentProvider;
 
 export function activate(context: ExtensionContext) {
     outputChannel = window.createOutputChannel('Nemerle Language Server');
-    outputChannel.appendLine('Nemerle extension activating...');
+    const pkg = context.extension.packageJSON;
+    outputChannel.appendLine(`Nemerle extension v${pkg.version} activating...`);
 
     const serverExe = findServerExe();
     if (!serverExe) {

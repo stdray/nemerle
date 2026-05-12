@@ -35,10 +35,30 @@ namespace Nemerle.Completion2
 
     TryFindSource(uri : string) : option[LspIdeSource]
     {
+      def normalized = NormalizeUri(uri);
       foreach (kv in _sources)
-        when (kv.Value.Uri == uri)
+        when (NormalizeUri(kv.Value.Uri) == normalized)
           Some(kv.Value);
       None()
+    }
+
+    static NormalizeUri(uri : string) : string
+    {
+      try
+      {
+        def u = System.Uri(uri);
+        if (u.Scheme == "file")
+        {
+          mutable path = u.LocalPath;
+          // Remove leading / from Unix-style paths like /d:/path
+          when (path.StartsWith("/") && path.Length > 2 && path[2] == ':')
+            path = path.Substring(1);
+          System.IO.Path.GetFullPath(path).ToUpperInvariant()
+        }
+        else
+          uri.ToUpperInvariant()
+      }
+      catch { _ => uri.ToUpperInvariant() }
     }
 
     public AddOrUpdateSource(uri : string, text : string, version : int) : int

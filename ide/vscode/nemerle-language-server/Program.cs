@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
 using Seq.Extensions.Logging;
@@ -21,7 +22,12 @@ using var loggerFactory = LoggerFactory.Create(builder =>
 });
 
 var logger = loggerFactory.CreateLogger("Program");
-logger.LogInformation("Nemerle Language Server starting (log file: {Path})", logFilePath);
+
+var asm = Assembly.GetExecutingAssembly();
+var asmName = asm.GetName();
+var buildTime = System.IO.File.GetLastWriteTime(asm.Location);
+logger.LogInformation("Nemerle Language Server v{Version} built {BuildTime} (log: {Path})",
+    asmName.Version, buildTime.ToString("s"), logFilePath);
 
 using var transport = new LspTransport(Console.OpenStandardInput(), Console.OpenStandardOutput());
 var server = new NemerleLanguageServer(transport, loggerFactory);

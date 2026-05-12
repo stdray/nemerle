@@ -57,7 +57,8 @@ class NemerleMacroContentProvider {
 let macroProvider;
 function activate(context) {
     outputChannel = vscode_1.window.createOutputChannel('Nemerle Language Server');
-    outputChannel.appendLine('Nemerle extension activating...');
+    const pkg = context.extension.packageJSON;
+    outputChannel.appendLine(`Nemerle extension v${pkg.version} activating...`);
     const serverExe = findServerExe();
     if (!serverExe) {
         void vscode_1.window.showErrorMessage('Nemerle language server not found. ' +
