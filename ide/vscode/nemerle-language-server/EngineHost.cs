@@ -202,51 +202,46 @@ public class EngineHost
 
     public string? GetHoverInfo(string uri, int line, int col)
     {
-        if (_lastManager == null)
-        {
-            _logger.LogDebug("GetHoverInfo: no cached manager");
-            return null;
-        }
-        if (_lastUri != uri)
-        {
-            _logger.LogDebug("GetHoverInfo: uri mismatch cached={CachedUri} requested={Uri}", _lastUri, uri);
-            return null;
-        }
-        if (_lastText == null)
-        {
-            _logger.LogDebug("GetHoverInfo: no cached text");
-            return null;
-        }
+        if (_lastText == null) return null;
 
         var word = GetWordAt(_lastText, line, col);
         if (word == null) return null;
 
         try
         {
+            // Try compiler type lookup if available
             var manager = _lastManager;
-            var nameTree = manager.NameTree;
-
-            // Try to find the type by name
-            var typeInfo = manager.LookupTypeInfo(word);
-            if (typeInfo != null)
+            if (manager != null)
             {
-                return $"**`{word}`** — *type*\n\n{typeInfo}";
-            }
-
-            // Look up in namespace tree by full path
-            var exactTypeOpt = nameTree.LookupExactType(word);
-            if (exactTypeOpt != null)
-            {
-                var ti = exactTypeOpt.Value;
+                var ti = manager.LookupTypeInfo(word);
                 if (ti != null)
                     return $"**`{word}`** — *type*\n\n{ti}";
+
+                var exactOpt = manager.NameTree?.LookupExactType(word);
+                if (exactOpt != null)
+                {
+                    try
+                    {
+                        var val = exactOpt.GetType().GetProperty("Value")?.GetValue(exactOpt);
+                        if (val != null)
+                            return $"**`{word}`** — *type*\n\n{val}";
+                    }
+                    catch { }
+                }
             }
 
-            return $"**`{word}`**\n\n(no compiler info)";
+            // Fallback: try System.Type
+            var sysType = System.Type.GetType(word, throwOnError: false);
+            if (sysType == null)
+                sysType = System.Type.GetType("System." + word, throwOnError: false);
+            if (sysType != null)
+                return $"**`{sysType.FullName}`** — *type*\n\nAssembly: `{sysType.Assembly.GetName().Name}`";
+
+            return $"**`{word}`** — (compiler not available)";
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GetHoverInfo failed");
+            _logger.LogWarning(ex, "GetHoverInfo failed for {Word}", word);
             return null;
         }
     }

@@ -26,8 +26,8 @@ var logger = loggerFactory.CreateLogger("Program");
 var asm = Assembly.GetExecutingAssembly();
 var asmName = asm.GetName();
 var buildTime = System.IO.File.GetLastWriteTime(asm.Location);
-logger.LogInformation("Nemerle Language Server v{Version} built {BuildTime} (log: {Path})",
-    asmName.Version, buildTime.ToString("s"), logFilePath);
+var verLine = $"Nemerle Language Server v{asmName.Version} built {buildTime:s} (log: {logFilePath})";
+logger.LogInformation(verLine);
 
 // Redirect Debug.WriteLine and Console.Error to logger
 var debugLogger = loggerFactory.CreateLogger("Debug");
