@@ -54,12 +54,12 @@
 к TExpr-дереву компилятора из EngineHost. Устраняет null_tip и
 зависимость от асинхронного Engine.
 
-- [ ] 1. EngineHost: кешировать ManagerClass/TExpr после Run()
-- [ ] 2. EngineHost: FindTExprAt() — обход TExpr.Visit() по Location.Contains()
-- [ ] 3. EngineHost: MakeHoverMarkdown() — TExpr/IMember/LocalValue → Markdown
-- [ ] 4. EngineHost: GetHoverInfo(uri, line, col) — публичный метод
-- [ ] 5. EngineHost: GetDefinitionLocation(uri, line, col) — публичный метод
-- [ ] 6. ServerState: GetHoverAsync → _engine.GetHoverInfo() вместо EngineBridge
+- [x] 1. EngineHost: кешировать ManagerClass/TExpr после Run()
+- [x] 2. EngineHost: FindTExprAt (simplified via NameTree lookup)() — обход TExpr.Visit() по Location.Contains()
+- [x] 3. EngineHost: MakeHoverMarkdown (inline)() — TExpr/IMember/LocalValue → Markdown
+- [x] 4. EngineHost: GetHoverInfo(uri, line, col) — публичный метод
+- [x] 5. EngineHost: GetDefinitionLocation(uri, line, col) — публичный метод
+- [x] 6. ServerState: GetHoverAsync → _engine.GetHoverInfo() вместо EngineBridge
 - [ ] 7. ServerState: GetDefinitionAsync → _engine.GetDefinitionLocation()
 - [ ] 8. EngineBridge.n: удалить GetHoverText, GetDefinitions, Complete
 - [ ] 9. Тест: ServerHarness.SendHoverRequestAsync + CompilationTests на VscodeTestApp

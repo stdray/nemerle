@@ -10,6 +10,9 @@ public class EngineHost
     private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "nemerle-lsp");
     private static readonly string[] _frameworkAssemblies;
     private static readonly string? _frameworkDir;
+    private Nemerle.Compiler.ManagerClass? _lastManager;
+    private string? _lastUri;
+    private string? _lastText;
 
     static EngineHost()
     {
@@ -95,6 +98,11 @@ public class EngineHost
                 };
 
                 manager.Run();
+
+                // Cache for IntelliSense queries
+                _lastManager = manager;
+                _lastUri = uri;
+                _lastText = text;
             }
             finally
             {
@@ -191,4 +199,104 @@ public class EngineHost
 
         return diags;
     }
+
+    public string? GetHoverInfo(string uri, int line, int col)
+    {
+        if (_lastManager == null)
+        {
+            _logger.LogDebug("GetHoverInfo: no cached manager");
+            return null;
+        }
+        if (_lastUri != uri)
+        {
+            _logger.LogDebug("GetHoverInfo: uri mismatch cached={CachedUri} requested={Uri}", _lastUri, uri);
+            return null;
+        }
+        if (_lastText == null)
+        {
+            _logger.LogDebug("GetHoverInfo: no cached text");
+            return null;
+        }
+
+        var word = GetWordAt(_lastText, line, col);
+        if (word == null) return null;
+
+        try
+        {
+            var manager = _lastManager;
+            var nameTree = manager.NameTree;
+
+            // Try to find the type by name
+            var typeInfo = manager.LookupTypeInfo(word);
+            if (typeInfo != null)
+            {
+                return $"**`{word}`** — *type*\n\n{typeInfo}";
+            }
+
+            // Look up in namespace tree by full path
+            var exactTypeOpt = nameTree.LookupExactType(word);
+            if (exactTypeOpt != null)
+            {
+                var ti = exactTypeOpt.Value;
+                if (ti != null)
+                    return $"**`{word}`** — *type*\n\n{ti}";
+            }
+
+            return $"**`{word}`**\n\n(no compiler info)";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetHoverInfo failed");
+            return null;
+        }
+    }
+
+    public PositionResult? GetDefinitionLocation(string uri, int line, int col)
+    {
+        if (_lastManager == null || _lastUri != uri || _lastText == null)
+            return null;
+
+        var word = GetWordAt(_lastText, line, col);
+        if (word == null) return null;
+
+        try
+        {
+            // Look up as type
+            var typeInfo = _lastManager.LookupTypeInfo(word);
+            if (typeInfo != null)
+            {
+                var loc = typeInfo.NameLocation;
+                if (loc != null && loc.Line > 0)
+                    return new PositionResult(uri, loc.Line - 1, loc.Column - 1);
+                return null;
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? GetWordAt(string text, int line0, int col0)
+    {
+        var lines = text.Split('\n');
+        if (line0 >= lines.Length) return null;
+        var line = lines[line0];
+        if (col0 >= line.Length) return null;
+
+        // Find word boundaries
+        int start = col0;
+        while (start > 0 && (char.IsLetterOrDigit(line[start - 1]) || line[start - 1] == '_'))
+            start--;
+        int end = col0;
+        while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '_'))
+            end++;
+        if (end <= start) return null;
+
+        return line[start..end];
+    }
+
+    public record PositionResult(string Uri, int Line, int Column);
 }

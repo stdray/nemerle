@@ -238,29 +238,14 @@ public class ServerState
         var doc = GetDocument(uri);
         if (doc == null) return Task.FromResult<Hover?>(null);
 
-        // Try engine hover
+        // Try compiler-based hover from cached ManagerClass
         try
         {
-            if (_engineBridge?.Ready == true)
-            {
-                _logger.LogDebug("Engine hint: calling GetHoverText for {Uri} ({Line},{Col})",
-                    uri, position.Line, position.Character);
-                var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
-                _logger.LogDebug("Engine hint: ready={Ready} text='{Text}'", _engineBridge.Ready,
-                    hintText?.Length > 80 ? hintText[..80] : hintText ?? "null");
-
-                if (!string.IsNullOrEmpty(hintText) && !hintText.StartsWith("error"))
-                {
-                    var mkd = HintMarkdownRenderer.ToMarkdown(hintText);
-                    if (!string.IsNullOrWhiteSpace(mkd))
-                    {
-                        var engineMd = mkd + $"\n\n*Line {position.Line + 1}, Col {position.Character + 1}*";
-                        return Task.FromResult<Hover?>(new Hover(engineMd));
-                    }
-                }
-            }
+            var hoverMd = _engine.GetHoverInfo(uri, (int)position.Line, (int)position.Character);
+            if (!string.IsNullOrEmpty(hoverMd))
+                return Task.FromResult<Hover?>(new Hover(hoverMd));
         }
-        catch (Exception ex) { _logger.LogWarning(ex, "Engine hover failed"); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Compiler hover failed"); }
 
         // Fallback: lexical
         var word = _analysisEngine.GetWordAtPosition(doc.Text, position);
