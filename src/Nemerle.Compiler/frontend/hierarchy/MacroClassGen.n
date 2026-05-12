@@ -451,18 +451,6 @@ namespace Nemerle.Compiler
       // this also checkes parameters to infer target type of macro
       def (macro_patts, macro_exprs, macro_parms) = analyze_params(header.Parameters, [], [], [], [], []);
 
-      // If no builder parameter found, infer target_type_suff from MacroUsage attribute
-      when (target_type_suff == "")
-        target_type_suff = match (target) {
-          | MacroTargets.Class      => ":type"
-          | MacroTargets.Method     => ":method"
-          | MacroTargets.Field      => ":field"
-          | MacroTargets.Property   => ":property"
-          | MacroTargets.Event      => ":event"
-          | MacroTargets.Parameter  => ":param"
-          | _ => ""
-        }
-
       def retname =
         if (target_type_suff != "" || phase != Nemerle.MacroPhase.None)
           if (target_type_suff != "" || target == MacroTargets.Assembly)
