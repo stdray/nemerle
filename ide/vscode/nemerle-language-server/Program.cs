@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
@@ -34,7 +33,6 @@ logger.LogInformation("Nemerle Language Server v{Version} built {BuildTime} (log
 var debugLogger = loggerFactory.CreateLogger("Debug");
 var errWriter = new LoggerTextWriter(debugLogger, LogLevel.Warning);
 Console.SetError(errWriter);
-Debug.Listeners.Add(new TextWriterTraceListener(errWriter));
 
 using var transport = new LspTransport(Console.OpenStandardInput(), Console.OpenStandardOutput());
 var server = new NemerleLanguageServer(transport, loggerFactory);

@@ -63,7 +63,11 @@ namespace Nemerle.Completion2
     public RebuildProject() : void
     {
       when (_ready)
-        _ = _engine.BeginReloadProject()
+      {
+        def req = _engine.BeginReloadProject();
+        when (req != null)
+          _ = req.AsyncWaitHandle.WaitOne(60000)
+      }
     }
 
     public Shutdown() : void

@@ -19,12 +19,12 @@ public class LoggerTextWriter : TextWriter
     public override void WriteLine(string? value)
     {
         if (!string.IsNullOrEmpty(value))
-            _logger.Log(_level, 0, default, value, null, (s, _) => s!);
+            _logger.Log(_level, value);
     }
 
     public override void Write(string? value)
     {
         if (!string.IsNullOrEmpty(value))
-            _logger.Log(_level, 0, default, value, null, (s, _) => s!);
+            _logger.Log(_level, value);
     }
 }
