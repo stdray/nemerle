@@ -234,10 +234,30 @@ public class EngineHost
                 catch { }
             }
 
-            // Fallback: try System.Type
-            var sysType = System.Type.GetType(word, throwOnError: false);
-            if (sysType == null)
-                sysType = System.Type.GetType("System." + word, throwOnError: false);
+            // Fallback: try System.Type with keyword mapping
+            var typeName = word switch
+            {
+                "string" => "System.String",
+                "int" => "System.Int32",
+                "long" => "System.Int64",
+                "bool" => "System.Boolean",
+                "double" => "System.Double",
+                "float" => "System.Single",
+                "char" => "System.Char",
+                "byte" => "System.Byte",
+                "short" => "System.Int16",
+                "uint" => "System.UInt32",
+                "ulong" => "System.UInt64",
+                "sbyte" => "System.SByte",
+                "ushort" => "System.UInt16",
+                "decimal" => "System.Decimal",
+                "object" => "System.Object",
+                "void" => "System.Void",
+                _ => null
+            };
+            if (typeName == null)
+                typeName = "System." + word;
+            var sysType = Type.GetType(typeName, throwOnError: false);
             if (sysType != null)
                 return $"**`{sysType.FullName}`** — *type*\n\nAssembly: `{sysType.Assembly.GetName().Name}`";
 
