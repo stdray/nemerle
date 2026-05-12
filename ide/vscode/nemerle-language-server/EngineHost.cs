@@ -209,6 +209,7 @@ public class EngineHost
 
         try
         {
+            // Try compiler type lookup
             var manager = _lastManager;
             if (manager != null)
             {
@@ -233,135 +234,37 @@ public class EngineHost
                 catch (Exception ex) { _logger.LogWarning(ex, "LookupExactType({Word}) failed", word); }
             }
 
-            // System.Type with keyword mapping
+            // Fallback: System.Type with C# keyword mapping
             var typeName = word switch
             {
-                "string" => "System.String",
-                "int" => "System.Int32",
-                "long" => "System.Int64",
-                "bool" => "System.Boolean",
-                "double" => "System.Double",
-                "float" => "System.Single",
-                "char" => "System.Char",
-                "byte" => "System.Byte",
-                "short" => "System.Int16",
-                "uint" => "System.UInt32",
-                "ulong" => "System.UInt64",
-                "sbyte" => "System.SByte",
-                "ushort" => "System.UInt16",
-                "decimal" => "System.Decimal",
-                "object" => "System.Object",
-                "void" => "System.Void",
-                _ => null
+                "string" => "System.String", "int" => "System.Int32", "long" => "System.Int64",
+                "bool" => "System.Boolean", "double" => "System.Double", "float" => "System.Single",
+                "char" => "System.Char", "byte" => "System.Byte", "short" => "System.Int16",
+                "uint" => "System.UInt32", "ulong" => "System.UInt64", "sbyte" => "System.SByte",
+                "ushort" => "System.UInt16", "decimal" => "System.Decimal", "object" => "System.Object",
+                "void" => "System.Void", _ => null
             };
             if (typeName == null)
                 typeName = "System." + word;
             var sysType = Type.GetType(typeName, throwOnError: false);
             if (sysType != null)
-                return $"**`{sysType.FullName}`** — *type*\n\nAssembly: `{sysType.Assembly.GetName().Name}`";
+                return $"**`{sysType.FullName}`** — *.NET type*\n\n`{sysType}`";
 
-            // Source-context: find definition line
+            // Source-context: find definition line for local identifiers
             var srcLines = _lastText.Split('\n');
             for (int i = 0; i < srcLines.Length; i++)
             {
                 if (i == line) continue;
-                if (srcLines[i].Contains(" " + word + " ") || srcLines[i].Contains("macro " + word))
+                if (srcLines[i].Contains("macro " + word) || srcLines[i].Contains("def " + word) ||
+                    srcLines[i].Contains(" " + word + " ") || srcLines[i].Contains(" " + word + ":"))
                     return $"**`{word}`** defined at line {i + 1}\n\n`{srcLines[i].Trim()}`";
             }
 
-            return $"**`{word}`**\n\n*(no type info)*";
+            return $"**`{word}`**\n\n*(not a known type)*";
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GetHoverInfo({Word}) crashed", word);
-            return null;
-        }
-                catch { }
-
-                try
-                {
-                    var exactOpt = manager.NameTree?.LookupExactType(word);
-                    if (exactOpt != null)
-                    {
-                        var val = exactOpt.GetType().GetProperty("Value")?.GetValue(exactOpt);
-                        if (val != null)
-                            return $"**`{word}`** — *compiler type*\n\n{val}";
-                    }
-                }
-                catch { }
-
-                // Try macro/symbol lookup via namespace tree
-                try
-                {
-                    var rootNode = manager.NameTree?.GetType()
-                        .GetProperty("namespace_tree")?.GetValue(manager.NameTree);
-                    if (rootNode != null)
-                    {
-                        var lookupMacro = rootNode.GetType().GetMethod("LookupMacro");
-                        if (lookupMacro != null)
-                        {
-                            var nlistType = typeof(Nemerle.Core.list<>).MakeGenericType(typeof(string));
-                            var qid = Activator.CreateInstance(nlistType, new[] { word });
-                            var result = lookupMacro.Invoke(rootNode, new[] { qid });
-                            if (result != null)
-                            {
-                                var value = result.GetType().GetProperty("Value")?.GetValue(result);
-                                if (value != null)
-                                    return $"**`{word}`** — *macro*\n\n{value}";
-                            }
-                        }
-                    }
-                }
-                catch { }
-            }
-
-            // Fallback: System.Type with keyword mapping
-            var typeName = word switch
-            {
-                "string" => "System.String",
-                "int" => "System.Int32",
-                "long" => "System.Int64",
-                "bool" => "System.Boolean",
-                "double" => "System.Double",
-                "float" => "System.Single",
-                "char" => "System.Char",
-                "byte" => "System.Byte",
-                "short" => "System.Int16",
-                "uint" => "System.UInt32",
-                "ulong" => "System.UInt64",
-                "sbyte" => "System.SByte",
-                "ushort" => "System.UInt16",
-                "decimal" => "System.Decimal",
-                "object" => "System.Object",
-                "void" => "System.Void",
-                _ => null
-            };
-            if (typeName == null)
-                typeName = "System." + word;
-            var sysType = Type.GetType(typeName, throwOnError: false);
-            if (sysType != null)
-                return $"**`{sysType.FullName}`** — *type*\n\nAssembly: `{sysType.Assembly.GetName().Name}`";
-
-            // Source-context: find definition line
-            var srcLines = _lastText.Split('\n');
-            for (int i = 0; i < srcLines.Length; i++)
-            {
-                if (i == line) continue;
-                if (srcLines[i].Contains(" " + word + " ") || srcLines[i].Contains("macro " + word))
-                    return $"**`{word}`** defined at line {i + 1}\n\n`{srcLines[i].Trim()}`";
-            }
-
-            return $"**`{word}`** — (compiler not available)";
-                typeName = "System." + word;
-            var sysType = Type.GetType(typeName, throwOnError: false);
-            if (sysType != null)
-                return $"**`{sysType.FullName}`** — *type*\n\nAssembly: `{sysType.Assembly.GetName().Name}`";
-
-            return $"**`{word}`** — (compiler not available)";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GetHoverInfo failed for {Word}", word);
             return null;
         }
     }
