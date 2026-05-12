@@ -4,9 +4,9 @@ using Seq.Extensions.Logging;
 
 // Configure logging: Debug (stdout via Debug.WriteLine) + YobaLog (Seq-compat)
 var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL")
-    ?? "http://yobalog.3po.su/compat/seq?workspace=nemerle-lsp";
+    ?? "https://yobalog.3po.su/compat/seq/nemerle-lsp";
 var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY")
-    ?? "lS0Q17oH70-qA_pojYBVTQ";
+    ?? "_hJAqQ2SGUOMfucTWyX36w";
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {

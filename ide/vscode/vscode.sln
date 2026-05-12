@@ -1,0 +1,38 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nemerle-language-server", "nemerle-language-server", "{05C2B901-6C38-BE75-1CF7-BA54BBFD060E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nemerle-language-server.tests", "nemerle-language-server.tests", "{EAF33985-4428-5FB1-29F0-114CB7FEF386}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nemerle.LanguageServer", "nemerle-language-server\Nemerle.LanguageServer.csproj", "{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nemerle.LanguageServer.Tests", "nemerle-language-server.tests\Nemerle.LanguageServer.Tests.csproj", "{EF8C764F-7694-95CB-7637-AD51E17F8450}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF8C764F-7694-95CB-7637-AD51E17F8450}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF8C764F-7694-95CB-7637-AD51E17F8450}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF8C764F-7694-95CB-7637-AD51E17F8450}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF8C764F-7694-95CB-7637-AD51E17F8450}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1EAF5E23-CB5D-3449-B4F1-D0EDCB36BAF1} = {05C2B901-6C38-BE75-1CF7-BA54BBFD060E}
+		{EF8C764F-7694-95CB-7637-AD51E17F8450} = {EAF33985-4428-5FB1-29F0-114CB7FEF386}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CC1F9B95-190E-431D-A156-98EF461169FB}
+	EndGlobalSection
+EndGlobal

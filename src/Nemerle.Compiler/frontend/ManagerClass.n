@@ -562,7 +562,8 @@ namespace Nemerle.Compiler
         {
           forceInitNemerleTypes                    = true;
           LibrariesManager.AssemblyResolver.UseGAC = true;
-          CompilerLog.Debug( $"LoadExternalLibraries: compiler Nemerle.dll at {typeof(Nemerle.Collections.NList).Assembly.Location}");
+          CompilerLog.LogDebug("LoadExternalLibraries: compiler Nemerle.dll at {Path}",
+              typeof(Nemerle.Collections.NList).Assembly.Location :> object);
           def load(type) { LibrariesManager.AddLibrary(type.Assembly.Location, isUserReference=false); }
           load(typeof(object));                    // mscorlib
           load(typeof(System.Uri));                // System
@@ -580,7 +581,7 @@ namespace Nemerle.Compiler
 
         foreach (lib in Options.References)
           tryEx(() => {
-            CompilerLog.Debug( $"Loading reference library: {lib}");
+            CompilerLog.LogDebug("Loading reference library: {Path}", lib :> object);
             LibrariesManager.AddLibrary(lib, true)
           });
 

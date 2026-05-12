@@ -378,7 +378,8 @@ namespace Nemerle.Compiler
       def (type_part, the_name) = NList.DivideLast(name);
       def tp = Nemerle.Utility.NString.Concat(".", type_part);
       def qname = Nemerle.Utility.NString.Concat(".", name);
-      CompilerLog.Debug($"LookupSymbolExt: type_part=$tp, the_name=$the_name, qid=$qname");
+      CompilerLog.LogDebug("LookupSymbolExt: type_part={TypePart}, the_name={Name}, qid={Qid}",
+          tp :> object, the_name :> object, qname :> object);
       // now we have type_part . the_name
 
       def add_members_from((pt : TypeInfo, ti : TypeInfo), acc : list[TypeInfo * IMember])

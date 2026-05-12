@@ -5,37 +5,66 @@ namespace Nemerle.Compiler
 {
   public module CompilerLog
   {
-    /// Static ambient logger — set by host (VSCode server, ncc-core) before
-    /// compilation. Defaults to NullLogger — no logging unless configured.
-    public mutable Instance : ILogger = NullLogger.Instance;
+    private mutable _log : ILogger = NullLogger.Instance;
 
-    public InitLogger(am_ : ILogger) : void
+    public InitLogger(logger : ILogger) : void
     {
-      Instance = am_
+      _log = logger
     }
 
-    public Debug(message : string) : void
+    public LogDebug(message : string) : void
     {
-      when (Instance.IsEnabled(LogLevel.Debug))
-        Instance.Log(LogLevel.Debug, 0, message, null, (s, _) => s);
+      LoggerExtensions.LogDebug(_log, message);
     }
 
-    public Information(message : string) : void
+    public LogDebug(message : string, arg0 : object) : void
     {
-      when (Instance.IsEnabled(LogLevel.Information))
-        Instance.Log(LogLevel.Information, 0, message, null, (s, _) => s);
+      LoggerExtensions.LogDebug(_log, message, arg0);
     }
 
-    public Warning(message : string) : void
+    public LogDebug(message : string, arg0 : object, arg1 : object) : void
     {
-      when (Instance.IsEnabled(LogLevel.Warning))
-        Instance.Log(LogLevel.Warning, 0, message, null, (s, _) => s);
+      LoggerExtensions.LogDebug(_log, message, arg0, arg1);
     }
 
-    public Error(message : string) : void
+    public LogDebug(message : string, arg0 : object, arg1 : object, arg2 : object) : void
     {
-      when (Instance.IsEnabled(LogLevel.Error))
-        Instance.Log(LogLevel.Error, 0, message, null, (s, _) => s);
+      LoggerExtensions.LogDebug(_log, message, arg0, arg1, arg2);
+    }
+
+    public LogInformation(message : string) : void
+    {
+      LoggerExtensions.LogInformation(_log, message);
+    }
+
+    public LogInformation(message : string, arg0 : object) : void
+    {
+      LoggerExtensions.LogInformation(_log, message, arg0);
+    }
+
+    public LogWarning(message : string) : void
+    {
+      LoggerExtensions.LogWarning(_log, message);
+    }
+
+    public LogWarning(message : string, arg0 : object) : void
+    {
+      LoggerExtensions.LogWarning(_log, message, arg0);
+    }
+
+    public LogError(message : string) : void
+    {
+      LoggerExtensions.LogError(_log, message);
+    }
+
+    public LogError(message : string, arg0 : object) : void
+    {
+      LoggerExtensions.LogError(_log, message, arg0);
+    }
+
+    public LogError(message : string, arg0 : object, arg1 : object) : void
+    {
+      LoggerExtensions.LogError(_log, message, arg0, arg1);
     }
   }
 }

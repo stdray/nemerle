@@ -386,16 +386,16 @@ namespace Nemerle.Compiler
       match (Util.QidOfExpr (expr)) {
         | Some ((id, name)) =>
           def qid = Nemerle.Utility.NString.Concat(".", id);
-          CompilerLog.Debug($"literal_field_value: qid=$qid");
+          CompilerLog.LogDebug("literal_field_value: qid={Qid}", qid :> object);
           match (name.GetEnv (env).LookupSymbol (id, tb)) {
             | [fld is IField] when fld.IsLiteral =>
-              CompilerLog.Debug( $"literal_field_value: found IField lit=$fld");
+              CompilerLog.LogDebug("literal_field_value: found IField lit={Lit}", fld :> object);
               match (FieldValueAsLiteral (fld, triggerObsoleteWarn)) {
                 | None => expr
                 | Some (lit) => PExpr.Literal (expr.Location, lit)
               }
             | other =>
-              CompilerLog.Debug( $"literal_field_value: lookup result count=$(other.Length)");
+              CompilerLog.LogDebug("literal_field_value: lookup result count={Count}", other.Length :> object);
               expr
           }
         | None => expr
