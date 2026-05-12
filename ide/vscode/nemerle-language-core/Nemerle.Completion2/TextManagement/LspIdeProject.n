@@ -35,11 +35,40 @@ namespace Nemerle.Completion2
 
     TryFindSource(uri : string) : option[LspIdeSource]
     {
-      def normalized = NormalizeUri(uri);
+      def key = UriToKey(uri);
+      mutable found = None() : option[LspIdeSource];
       foreach (kv in _sources)
-        when (NormalizeUri(kv.Value.Uri) == normalized)
-          Some(kv.Value);
-      None()
+        when (kv.Value.Uri.Equals(key))
+          found = Some(kv.Value);
+      found
+    }
+
+    public AddOrUpdateSource(uri : string, text : string, version : int) : int
+    {
+      def key = UriToKey(uri);
+      match (TryFindSource(key))
+      {
+        | Some(src) =>
+          src.Update(text, version);
+          src.FileIndex
+        | None =>
+          def idx = _nextFileIndex;
+          _nextFileIndex++;
+          _sources[idx] = LspIdeSource(idx, key, text, version);
+          idx
+      }
+    }
+
+    static UriToKey(uri : string) : string
+    {
+      try
+      {
+        mutable path = System.Uri(uri).LocalPath;
+        when (path.Length > 2 && path[0] == '/' && path[2] == ':')
+          path = path.Substring(1);
+        path.Replace('\\', '/').ToUpperInvariant()
+      }
+      catch { _ => uri.ToUpperInvariant() }
     }
 
     static NormalizeUri(uri : string) : string
@@ -50,7 +79,6 @@ namespace Nemerle.Completion2
         if (u.Scheme == "file")
         {
           mutable path = u.LocalPath;
-          // Remove leading / from Unix-style paths like /d:/path
           when (path.StartsWith("/") && path.Length > 2 && path[2] == ':')
             path = path.Substring(1);
           System.IO.Path.GetFullPath(path).ToUpperInvariant()
@@ -59,21 +87,6 @@ namespace Nemerle.Completion2
           uri.ToUpperInvariant()
       }
       catch { _ => uri.ToUpperInvariant() }
-    }
-
-    public AddOrUpdateSource(uri : string, text : string, version : int) : int
-    {
-      match (TryFindSource(uri))
-      {
-        | Some(src) =>
-          src.Update(text, version);
-          src.FileIndex
-        | None =>
-          def idx = _nextFileIndex;
-          _nextFileIndex++;
-          _sources[idx] = LspIdeSource(idx, uri, text, version);
-          idx
-      }
     }
 
     public RemoveSource(uri : string) : void
@@ -134,6 +147,13 @@ namespace Nemerle.Completion2
         _diagnostics[uri]
       else
         List()
+    }
+
+    public DumpSources(writer : System.IO.TextWriter) : void
+    {
+      writer.WriteLine($"LspIdeProject sources: $(_sources.Count)");
+      foreach (kv in _sources)
+        writer.WriteLine($"  $(kv.Key) = $(kv.Value.Uri) -> $(NormalizeUri(kv.Value.Uri))")
     }
 
     public ClearAllCompilerMessages() : void { _diagnostics.Clear() }

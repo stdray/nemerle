@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
@@ -28,6 +29,12 @@ var asmName = asm.GetName();
 var buildTime = System.IO.File.GetLastWriteTime(asm.Location);
 logger.LogInformation("Nemerle Language Server v{Version} built {BuildTime} (log: {Path})",
     asmName.Version, buildTime.ToString("s"), logFilePath);
+
+// Redirect Debug.WriteLine and Console.Error to logger
+var debugLogger = loggerFactory.CreateLogger("Debug");
+var errWriter = new LoggerTextWriter(debugLogger, LogLevel.Warning);
+Console.SetError(errWriter);
+Debug.Listeners.Add(new TextWriterTraceListener(errWriter));
 
 using var transport = new LspTransport(Console.OpenStandardInput(), Console.OpenStandardOutput());
 var server = new NemerleLanguageServer(transport, loggerFactory);

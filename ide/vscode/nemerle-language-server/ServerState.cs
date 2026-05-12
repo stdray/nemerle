@@ -115,10 +115,9 @@ public class ServerState
                     }
                 }
                 _logger.LogInformation("Loaded {TotalFiles} project source files into engine", totalFiles);
-
-                // Trigger full project rebuild
                 if (totalFiles > 0)
                 {
+                    _engineBridge.DebugDumpSources();
                     try { _engineBridge.RebuildProject(); }
                     catch (Exception ex) { _logger.LogWarning(ex, "RebuildProject failed"); }
                 }
@@ -244,6 +243,8 @@ public class ServerState
         {
             if (_engineBridge?.Ready == true)
             {
+                _logger.LogDebug("Engine hint: calling GetHoverText for {Uri} ({Line},{Col})",
+                    uri, position.Line, position.Character);
                 var hintText = _engineBridge.GetHoverText(uri, (int)position.Line, (int)position.Character);
                 _logger.LogDebug("Engine hint: ready={Ready} text='{Text}'", _engineBridge.Ready,
                     hintText?.Length > 80 ? hintText[..80] : hintText ?? "null");

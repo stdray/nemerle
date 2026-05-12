@@ -54,6 +54,12 @@ namespace Nemerle.Completion2
       _project.GetDiagnosticStrings(uri).ToArray()
     }
 
+    public DebugDumpSources() : void
+    {
+      def path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nemerle-lsp-sources.txt");
+      using (def w = System.IO.StreamWriter(path, false)) { _project.DumpSources(w) }
+    }
+
     public RebuildProject() : void
     {
       when (_ready)
@@ -71,8 +77,7 @@ namespace Nemerle.Completion2
 
     private FindSource(uri : string) : IIdeSource
     {
-      try { _project.FindByUri(uri) :> IIdeSource }
-      catch { _ => null }
+      _project.FindByUri(uri) :> IIdeSource
     }
 
     public Complete(uri : string, line : int, col : int) : array[CompletionElem]
