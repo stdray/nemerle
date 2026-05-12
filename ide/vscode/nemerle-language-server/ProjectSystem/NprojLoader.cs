@@ -103,12 +103,14 @@ public static class NprojLoader
             // MSBuild evaluation failed (SDK not found), fall back to raw XML parsing
         }
 
-        // Fallback: read Compile items from raw XML without MSBuild evaluation
+        // Fallback: read items from raw XML without MSBuild evaluation
         var fallback = new NprojInfo { ProjectPath = projectDir };
         try
         {
             var doc = System.Xml.Linq.XDocument.Load(nprojPath);
             var ns = doc.Root?.GetDefaultNamespace() ?? System.Xml.Linq.XNamespace.None;
+
+            // Compile items
             var compileItems = doc.Root?.Elements(ns + "ItemGroup")
                 .SelectMany(g => g.Elements(ns + "Compile"))
                 .Select(e => e.Attribute("Include")?.Value)
@@ -117,8 +119,30 @@ public static class NprojLoader
             if (compileItems != null)
                 foreach (var item in compileItems)
                     fallback.CompilePatterns.Add(item);
+
+            // Reference items
+            var refItems = doc.Root?.Elements(ns + "ItemGroup")
+                .SelectMany(g => g.Elements(ns + "Reference"))
+                .Select(e => e.Attribute("Include")?.Value)
+                .Where(v => v != null)
+                .Select(v => v!);
+            if (refItems != null)
+                foreach (var item in refItems)
+                    fallback.AssemblyReferences.Add(item);
         }
         catch { }
+
+        // Add Nemerle SDK references from the extension bin
+        var extBin = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".vscode", "extensions", "nemerle.nemerle-vscode-0.1.0", "bin");
+        if (Directory.Exists(extBin))
+        {
+            fallback.AssemblyReferences.Add(Path.Combine(extBin, "Nemerle.dll"));
+            fallback.AssemblyReferences.Add(Path.Combine(extBin, "Nemerle.Compiler.dll"));
+            fallback.AssemblyReferences.Add(Path.Combine(extBin, "Nemerle.Macros.dll"));
+            fallback.AssemblyReferences.Add(Path.Combine(extBin, "dnlib.dll"));
+        }
 
         return fallback;
     }
