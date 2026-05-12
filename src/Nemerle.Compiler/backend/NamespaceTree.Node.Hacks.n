@@ -24,8 +24,9 @@ namespace Nemerle.Compiler
           if (by_parms_amount.Contains (count))
           {
             def used = by_parms_amount[count] : DN.TypeDef;
-            Message.Warning($"using type `[$(used.DefinitionAssembly)]$(used.ReflectionFullName)' that was defined in more than one assembly: "
-                             " `[$(e.SystemType.DefinitionAssembly)]$(e.SystemType.ReflectionFullName)' (the first version was used)");
+            when (used.DefinitionAssembly.FullNameToken != e.SystemType.DefinitionAssembly.FullNameToken)
+              Message.Warning($"using type `[$(used.DefinitionAssembly)]$(used.ReflectionFullName)' that was defined in more than one assembly: "
+                               " `[$(e.SystemType.DefinitionAssembly)]$(e.SystemType.ReflectionFullName)' (the first version was used)");
             acc
           }
           else {
