@@ -10,15 +10,14 @@ namespace VscodeTestMacro
   /// </summary>
   [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
     Inherited = true, AllowMultiple = false)]
-  macro Greet(name : string)
+  macro Greet(tb : TypeBuilder, name : string)
   {
-    def builder = Nemerle.Macros.ImplicitCTX();
     def greeting = name;
     def body = <[ $"$greeting from $(this.GetType())!" ]>;
     def method = <[ decl:
       public Greet() : string { $body }
     ]>;
-    builder.Define(method);
+    tb.Define(method);
   }
 
   /// <summary>
@@ -27,7 +26,7 @@ namespace VscodeTestMacro
   /// </summary>
   [MacroUsage(MacroPhase.BeforeInheritance, MacroTargets.Class,
     Inherited = true, AllowMultiple = true)]
-  macro LogCompile(message : string)
+  macro LogCompile(tb : TypeBuilder, message : string)
   {
     Nemerle.IO.printf("Compile-time: %s\n", message);
   }
