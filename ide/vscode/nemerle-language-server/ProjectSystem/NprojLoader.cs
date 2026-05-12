@@ -25,79 +25,102 @@ public static class NprojLoader
 {
     public static NprojInfo Load(string nprojPath)
     {
-        var project = new Project(nprojPath);
+        var projectDir = Path.GetDirectoryName(Path.GetFullPath(nprojPath))!;
+
         try
         {
-            var projectDir = Path.GetDirectoryName(Path.GetFullPath(nprojPath))!;
-
-            var result = new NprojInfo
+            var project = new Project(nprojPath);
+            try
             {
-                ProjectPath = projectDir,
-                OutputType = project.GetPropertyValue("OutputType"),
-                AssemblyName = project.GetPropertyValue("AssemblyName"),
-                RootNamespace = project.GetPropertyValue("RootNamespace"),
-                TargetFramework = project.GetPropertyValue("TargetFramework"),
-                DefineConstants = project.GetPropertyValue("DefineConstants"),
-                NoStdLib = ParseBool(project.GetPropertyValue("NoStdLib"), true),
-                SdkBinPath = project.GetPropertyValue("Nemerle") ?? "",
-            };
+                var result = new NprojInfo
+                {
+                    ProjectPath = projectDir,
+                    OutputType = project.GetPropertyValue("OutputType"),
+                    AssemblyName = project.GetPropertyValue("AssemblyName"),
+                    RootNamespace = project.GetPropertyValue("RootNamespace"),
+                    TargetFramework = project.GetPropertyValue("TargetFramework"),
+                    DefineConstants = project.GetPropertyValue("DefineConstants"),
+                    NoStdLib = ParseBool(project.GetPropertyValue("NoStdLib"), true),
+                    SdkBinPath = project.GetPropertyValue("Nemerle") ?? "",
+                };
 
-            // Read Reference items
-            foreach (var item in project.GetItems("Reference"))
-            {
-                var hintPath = item.GetMetadataValue("HintPath");
-                if (!string.IsNullOrEmpty(hintPath))
-                    result.AssemblyReferences.Add(Path.GetFullPath(Path.Combine(projectDir, hintPath)));
-                else
-                    result.AssemblyReferences.Add(item.EvaluatedInclude);
+                // Read Reference items
+                foreach (var item in project.GetItems("Reference"))
+                {
+                    var hintPath = item.GetMetadataValue("HintPath");
+                    if (!string.IsNullOrEmpty(hintPath))
+                        result.AssemblyReferences.Add(Path.GetFullPath(Path.Combine(projectDir, hintPath)));
+                    else
+                        result.AssemblyReferences.Add(item.EvaluatedInclude);
+                }
+
+                // Read ProjectReference items
+                foreach (var item in project.GetItems("ProjectReference"))
+                {
+                    var path = Path.GetFullPath(Path.Combine(projectDir, item.EvaluatedInclude));
+                    result.ProjectReferences.Add(path);
+                }
+
+                // Read MacroProjectReference items
+                foreach (var item in project.GetItems("MacroProjectReference"))
+                {
+                    var path = Path.GetFullPath(Path.Combine(projectDir, item.EvaluatedInclude));
+                    result.MacroProjectReferences.Add(path);
+                }
+
+                // Read PackageReference items
+                foreach (var item in project.GetItems("PackageReference"))
+                {
+                    var version = item.GetMetadataValue("Version");
+                    if (!string.IsNullOrEmpty(version))
+                        result.PackageReferences.Add(new PackageRef(item.EvaluatedInclude, version));
+                }
+
+                // Read Compile items
+                foreach (var item in project.GetItems("Compile"))
+                {
+                    result.CompilePatterns.Add(item.EvaluatedInclude);
+                }
+
+                // Add standard Nemerle references from SDK path
+                if (result.NoStdLib && !string.IsNullOrEmpty(result.SdkBinPath))
+                {
+                    var nemerleBin = result.SdkBinPath;
+                    if (!Path.IsPathRooted(nemerleBin))
+                        nemerleBin = Path.GetFullPath(Path.Combine(projectDir, nemerleBin));
+                    result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.dll"));
+                    result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.Compiler.dll"));
+                    result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.Macros.dll"));
+                    result.AssemblyReferences.Add(Path.Combine(nemerleBin, "dnlib.dll"));
+                }
+
+                return result;
             }
-
-            // Read ProjectReference items
-            foreach (var item in project.GetItems("ProjectReference"))
-            {
-                var path = Path.GetFullPath(Path.Combine(projectDir, item.EvaluatedInclude));
-                result.ProjectReferences.Add(path);
-            }
-
-            // Read MacroProjectReference items
-            foreach (var item in project.GetItems("MacroProjectReference"))
-            {
-                var path = Path.GetFullPath(Path.Combine(projectDir, item.EvaluatedInclude));
-                result.MacroProjectReferences.Add(path);
-            }
-
-            // Read PackageReference items
-            foreach (var item in project.GetItems("PackageReference"))
-            {
-                var version = item.GetMetadataValue("Version");
-                if (!string.IsNullOrEmpty(version))
-                    result.PackageReferences.Add(new PackageRef(item.EvaluatedInclude, version));
-            }
-
-            // Read Compile items
-            foreach (var item in project.GetItems("Compile"))
-            {
-                result.CompilePatterns.Add(item.EvaluatedInclude);
-            }
-
-            // Add standard Nemerle references from SDK path
-            if (result.NoStdLib && !string.IsNullOrEmpty(result.SdkBinPath))
-            {
-                var nemerleBin = result.SdkBinPath;
-                if (!Path.IsPathRooted(nemerleBin))
-                    nemerleBin = Path.GetFullPath(Path.Combine(projectDir, nemerleBin));
-                result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.dll"));
-                result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.Compiler.dll"));
-                result.AssemblyReferences.Add(Path.Combine(nemerleBin, "Nemerle.Macros.dll"));
-                result.AssemblyReferences.Add(Path.Combine(nemerleBin, "dnlib.dll"));
-            }
-
-            return result;
+            finally { project.ProjectCollection.Dispose(); }
         }
-        finally
+        catch (Microsoft.Build.Exceptions.InvalidProjectFileException)
         {
-            project.ProjectCollection.UnloadAllProjects();
+            // MSBuild evaluation failed (SDK not found), fall back to raw XML parsing
         }
+
+        // Fallback: read Compile items from raw XML without MSBuild evaluation
+        var fallback = new NprojInfo { ProjectPath = projectDir };
+        try
+        {
+            var doc = System.Xml.Linq.XDocument.Load(nprojPath);
+            var ns = doc.Root?.GetDefaultNamespace() ?? System.Xml.Linq.XNamespace.None;
+            var compileItems = doc.Root?.Elements(ns + "ItemGroup")
+                .SelectMany(g => g.Elements(ns + "Compile"))
+                .Select(e => e.Attribute("Include")?.Value)
+                .Where(v => v != null)
+                .Select(v => v!);
+            if (compileItems != null)
+                foreach (var item in compileItems)
+                    fallback.CompilePatterns.Add(item);
+        }
+        catch { }
+
+        return fallback;
     }
 
     public static List<string> ResolveReferences(NprojInfo info)

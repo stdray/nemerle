@@ -49,6 +49,17 @@ namespace Nemerle.Completion2
       }
     }
 
+    public GetDiagnostics(uri : string) : array[string]
+    {
+      _project.GetDiagnosticStrings(uri).ToArray()
+    }
+
+    public RebuildProject() : void
+    {
+      when (_ready)
+        _ = _engine.BeginReloadProject()
+    }
+
     public Shutdown() : void
     {
       when (_ready)

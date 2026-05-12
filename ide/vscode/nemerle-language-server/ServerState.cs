@@ -15,6 +15,7 @@ public class ServerState
     private EngineBridge? _engineBridge;
     private LspIdeProject? _ideProject;
     private string? _rootPath;
+    private readonly List<NprojInfo> _projectInfos = new();
 
     public ServerState(ILogger<ServerState> logger)
     {
@@ -42,7 +43,10 @@ public class ServerState
         {
             try
             {
-                _rootPath = Uri.UnescapeDataString(new Uri(rootUri).LocalPath);
+                var rawPath = Uri.UnescapeDataString(rootUri);
+                if (rawPath.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                    rawPath = rawPath[8..]; // remove "file:///" prefix
+                _rootPath = Path.GetFullPath(rawPath);
                 _logger.LogInformation("Workspace root: {RootPath}", _rootPath);
                 if (Directory.Exists(_rootPath))
                 {
@@ -55,6 +59,7 @@ public class ServerState
                             try
                             {
                                 var info = NprojLoader.Load(nproj);
+                                _projectInfos.Add(info);
                                 refs.AddRange(NprojLoader.ResolveReferences(info));
                                 var (projRefs, macroRefs) = NprojLoader.ResolveProjectReferences(info);
                                 refs.AddRange(projRefs);
@@ -86,6 +91,37 @@ public class ServerState
                 _engineBridge = new Nemerle.Completion2.EngineBridge();
                 _engineBridge.Initialize(_ideProject);
                 _logger.LogInformation("EngineBridge initialized successfully");
+
+                // Load all project source files into the engine for cross-file macro resolution
+                var totalFiles = 0;
+                foreach (var info in _projectInfos)
+                {
+                    var resolved = ResolveCompilePatterns(info.ProjectPath, info.CompilePatterns);
+                    _logger.LogInformation("Project {Path} Compile patterns: {Patterns} → {Count} files",
+                        info.ProjectPath, string.Join(";", info.CompilePatterns), resolved.Count);
+                    foreach (var file in resolved)
+                    {
+                        try
+                        {
+                            var text = File.ReadAllText(file);
+                            var uri = new Uri(file).ToString();
+                            _engineBridge.AddOrUpdateDocument(uri, text, 0);
+                            totalFiles++;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to add project source: {File}", file);
+                        }
+                    }
+                }
+                _logger.LogInformation("Loaded {TotalFiles} project source files into engine", totalFiles);
+
+                // Trigger full project rebuild
+                if (totalFiles > 0)
+                {
+                    try { _engineBridge.RebuildProject(); }
+                    catch (Exception ex) { _logger.LogWarning(ex, "RebuildProject failed"); }
+                }
             }
             catch (Exception ex)
             {
@@ -142,9 +178,35 @@ public class ServerState
 
     public Task<List<Diagnostic>> GetDiagnosticsAsync(string uri)
     {
-        var doc = GetDocument(uri);
-        if (doc == null) return Task.FromResult(new List<Diagnostic>());
-        return Task.Run(() => _engine.GetDiagnostics(doc.Uri, doc.Text));
+        var diags = new List<Diagnostic>();
+
+        // Project-level diagnostics from EngineBridge
+        try
+        {
+            if (_engineBridge != null && _engineBridge.Ready)
+            {
+                var msgs = _engineBridge.GetDiagnostics(uri);
+                if (msgs != null && msgs.Length > 0)
+                {
+                    _logger.LogDebug("EngineBridge diagnostics for {Uri}: {Count} messages", uri, msgs.Length);
+                    foreach (var m in msgs)
+                        diags.Add(new Diagnostic
+                        {
+                            Range = new Range(new Position(0, 0), new Position(0, 1)),
+                            Severity = DiagnosticSeverity.Error,
+                            Message = m,
+                            Source = "Nemerle"
+                        });
+                }
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "EngineBridge.GetDiagnostics failed for {Uri}", uri); }
+
+        // Single-file diagnostics from EngineHost as fallback
+        if (_documents.TryGetValue(uri, out var doc))
+            diags.AddRange(_engine.GetDiagnostics(doc.Uri, doc.Text));
+
+        return Task.FromResult(diags);
     }
 
     public Task<List<CompletionItem>> GetCompletionAsync(string uri, Position position)
@@ -349,6 +411,29 @@ public class ServerState
             8 => CompletionItemKind.Keyword,
             _ => CompletionItemKind.Text
         };
+    }
+
+    public static List<string> ResolveCompilePatterns(string projectDir, List<string> patterns)
+    {
+        var files = new List<string>();
+        foreach (var pattern in patterns)
+        {
+            var normalized = pattern.Replace('\\', '/');
+            var searchPattern = Path.GetFileName(normalized);
+            var relativeDir = Path.GetDirectoryName(normalized)?.Replace('/', Path.DirectorySeparatorChar) ?? ".";
+            var searchDir = Path.GetFullPath(Path.Combine(projectDir, relativeDir));
+            var searchOption = normalized.Contains("**") ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+
+            if (!Directory.Exists(searchDir))
+                continue;
+
+            foreach (var file in Directory.GetFiles(searchDir, searchPattern, searchOption))
+            {
+                if (file.EndsWith(".n", StringComparison.OrdinalIgnoreCase) && !files.Contains(file))
+                    files.Add(file);
+            }
+        }
+        return files;
     }
 }
 

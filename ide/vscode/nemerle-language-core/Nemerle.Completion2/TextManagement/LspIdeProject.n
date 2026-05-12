@@ -105,13 +105,47 @@ namespace Nemerle.Completion2
       _sources.Values.Map(s => s :> IIdeSource) :> IEnumerable[IIdeSource]
     }
 
-    // Display callbacks — handled via LSP, not here
-    public ClearAllCompilerMessages() : void { }
-    public SetCompilerMessageForCompileUnit(compileUnit : CompileUnit) : void { }
-    public SetMethodCompilerMessages(member : MemberBuilder, messages : IEnumerable[CompilerMessage]) : void { }
+    // Display callbacks — store diagnostics per URI
+    _diagnostics : Dictionary[string, List[string]] = Dictionary();
+
+    public GetDiagnosticStrings(uri : string) : List[string]
+    {
+      if (_diagnostics.ContainsKey(uri))
+        _diagnostics[uri]
+      else
+        List()
+    }
+
+    public ClearAllCompilerMessages() : void { _diagnostics.Clear() }
+    public SetCompilerMessageForCompileUnit(compileUnit : CompileUnit) : void
+    {
+      foreach (msg in compileUnit.ParseCompilerMessages)
+      {
+        def src = _sources[compileUnit.Source.FileIndex];
+        def entry = $"$(src.Uri): error: $(msg.Msg)";
+        unless (_diagnostics.ContainsKey(src.Uri))
+          _diagnostics[src.Uri] = List();
+        _diagnostics[src.Uri].Add(entry)
+      }
+    }
+    public SetMethodCompilerMessages(member : MemberBuilder, messages : IEnumerable[CompilerMessage]) : void
+    {
+      def uri = _sources[member.BodyLocation.FileIndex].Uri;
+      foreach (msg in messages)
+      {
+        def entry = $"$uri($(msg.Location.Line),$(msg.Location.Column)): error: $(msg.Msg)";
+        unless (_diagnostics.ContainsKey(uri))
+          _diagnostics[uri] = List();
+        _diagnostics[uri].Add(entry)
+      }
+    }
     public ClearMethodCompilerMessages(member : MemberBuilder) : void { }
     public SetStatusText(text : string) : void { }
-    public SetTopLevelCompilerMessages(messages : IEnumerable[CompilerMessage]) : void { }
+    public SetTopLevelCompilerMessages(messages : IEnumerable[CompilerMessage]) : void
+    {
+      foreach (msg in messages)
+        System.Diagnostics.Debug.WriteLine($"TopLevel error: $(msg.Msg)")
+    }
     public ShowMessage(message : string, messageType : MessageType) : void { }
     public LookupLocationsFromDebugInformation(info : GotoInfo) : array[GotoInfo] { array[info] }
     public SetUsageHighlighting(source : IIdeSource, usages : IEnumerable[GotoInfo]) : void { }
