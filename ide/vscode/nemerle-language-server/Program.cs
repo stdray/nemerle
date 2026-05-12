@@ -2,7 +2,9 @@ using Microsoft.Extensions.Logging;
 using Nemerle.LanguageServer;
 using Seq.Extensions.Logging;
 
-// Configure logging: Debug (stdout via Debug.WriteLine) + YobaLog (Seq-compat)
+var logFilePath = Environment.GetEnvironmentVariable("NEMERLE_LOG_FILE")
+    ?? Path.Combine(Path.GetTempPath(), "nemerle-lsp.log");
+
 var seqUrl = Environment.GetEnvironmentVariable("NEMERLE_SEQ_URL")
     ?? "https://yobalog.3po.su/compat/seq/nemerle-lsp";
 var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY")
@@ -11,6 +13,7 @@ var seqKey = Environment.GetEnvironmentVariable("NEMERLE_SEQ_KEY")
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
     builder.AddDebug();
+    builder.AddProvider(new FileLoggerProvider(logFilePath));
     builder.SetMinimumLevel(LogLevel.Debug);
 
     if (!string.IsNullOrWhiteSpace(seqUrl))
@@ -18,7 +21,7 @@ using var loggerFactory = LoggerFactory.Create(builder =>
 });
 
 var logger = loggerFactory.CreateLogger("Program");
-logger.LogInformation("Nemerle Language Server starting");
+logger.LogInformation("Nemerle Language Server starting (log file: {Path})", logFilePath);
 
 using var transport = new LspTransport(Console.OpenStandardInput(), Console.OpenStandardOutput());
 var server = new NemerleLanguageServer(transport, loggerFactory);

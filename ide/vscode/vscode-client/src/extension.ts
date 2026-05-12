@@ -81,6 +81,27 @@ export function activate(context: ExtensionContext) {
 
     client.start().then(() => {
         outputChannel.appendLine('Nemerle language server ready');
+    }).catch((err) => {
+        outputChannel.appendLine(`Server start FAILED: ${err}`);
+    });
+
+    client.onDidChangeState((e) => {
+        outputChannel.appendLine(`Client state: ${e.oldState} -> ${e.newState}`);
+    });
+
+    client.onNotification('textDocument/publishDiagnostics', (params: any) => {
+        const uri = params.uri;
+        const count = params.diagnostics?.length ?? 0;
+        if (count > 0) {
+            outputChannel.appendLine(`Diagnostics for ${uri}: ${count} issue(s)`);
+            for (const d of params.diagnostics.slice(0, 5)) {
+                outputChannel.appendLine(`  [${d.severity}] L${d.range.start.line}: ${d.message}`);
+            }
+        }
+    });
+
+    client.onNotification('window/logMessage', (params: any) => {
+        outputChannel.appendLine(`[Server] ${params.type}: ${params.message}`);
     });
 
     // Register Virtual Document provider for macro expansion

@@ -86,10 +86,12 @@ public class EngineHost
                 manager.InitOutput(TextWriter.Null);
                 Nemerle.Compiler.CompilerLog.InitLogger(_logger);
 
-                manager.MessageOccured += (_, msg) =>
+                manager.MessageOccured += (loc, msg) =>
                 {
-                    lock (messages)
-                        messages.Add(msg);
+                    _logger.LogWarning("Compiler: {Message}", msg ?? "(null)");
+                    if (msg != null)
+                        lock (messages)
+                            messages.Add(msg);
                 };
 
                 manager.Run();

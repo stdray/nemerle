@@ -1,3 +1,4 @@
+using Nemerle;
 using Nemerle.Compiler;
 using Nemerle.Compiler.Parsetree;
 

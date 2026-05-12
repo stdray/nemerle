@@ -42,6 +42,19 @@ const vscode_1 = require("vscode");
 const node_1 = require("vscode-languageclient/node");
 let client = null;
 let outputChannel;
+class NemerleMacroContentProvider {
+    _onDidChange = new vscode_1.EventEmitter();
+    get onDidChange() { return this._onDidChange.event; }
+    _expansions = new Map();
+    provideTextDocumentContent(uri) {
+        return this._expansions.get(uri.toString()) ?? '// No expansion available';
+    }
+    setExpansion(uri, text) {
+        this._expansions.set(uri.toString(), text);
+        this._onDidChange.fire(uri);
+    }
+}
+let macroProvider;
 function activate(context) {
     outputChannel = vscode_1.window.createOutputChannel('Nemerle Language Server');
     outputChannel.appendLine('Nemerle extension activating...');
@@ -79,7 +92,29 @@ function activate(context) {
     client = new node_1.LanguageClient('nemerle-language-server', 'Nemerle Language Server', serverOptions, clientOptions);
     client.start().then(() => {
         outputChannel.appendLine('Nemerle language server ready');
+    }).catch((err) => {
+        outputChannel.appendLine(`Server start FAILED: ${err}`);
     });
+    client.onDidChangeState((e) => {
+        outputChannel.appendLine(`Client state: ${e.oldState} -> ${e.newState}`);
+    });
+    client.onNotification('textDocument/publishDiagnostics', (params) => {
+        const uri = params.uri;
+        const count = params.diagnostics?.length ?? 0;
+        if (count > 0) {
+            outputChannel.appendLine(`Diagnostics for ${uri}: ${count} issue(s)`);
+            for (const d of params.diagnostics.slice(0, 5)) {
+                outputChannel.appendLine(`  [${d.severity}] L${d.range.start.line}: ${d.message}`);
+            }
+        }
+    });
+    client.onNotification('window/logMessage', (params) => {
+        outputChannel.appendLine(`[Server] ${params.type}: ${params.message}`);
+    });
+    // Register Virtual Document provider for macro expansion
+    macroProvider = new NemerleMacroContentProvider();
+    const disposable = vscode_1.workspace.registerTextDocumentContentProvider('nemerle-macro', macroProvider);
+    context.subscriptions.push(disposable);
     // Register compile commands
     context.subscriptions.push(vscode_1.commands.registerCommand('nemerle.compile', async () => {
         const editor = vscode_1.window.activeTextEditor;
@@ -116,6 +151,20 @@ function activate(context) {
             void vscode_1.window.showInformationMessage('Run successful');
         else
             void vscode_1.window.showErrorMessage('Run failed');
+    }), vscode_1.commands.registerCommand('nemerle.expandMacro', async (params) => {
+        const editor = vscode_1.window.activeTextEditor;
+        if (!editor || !client)
+            return;
+        const uri = editor.document.uri.toString();
+        const query = `${uri}?line=${params.line}&col=${params.col}`;
+        const result = await client.sendRequest('nemerle/macroExpand', {
+            textDocument: { uri: query }
+        });
+        const text = result.text || '// No expansion';
+        const vscUri = vscode_1.Uri.parse(`nemerle-macro://expand/${params.line}_${params.col}.n`);
+        macroProvider.setExpansion(vscUri, text);
+        const doc = await vscode_1.workspace.openTextDocument(vscUri);
+        await vscode_1.window.showTextDocument(doc, vscode_1.ViewColumn.Beside);
     }));
 }
 function deactivate() {

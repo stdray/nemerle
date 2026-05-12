@@ -613,10 +613,9 @@ namespace Nemerle.Compiler
 
     protected virtual LoadNemerleMacros() : void
     {
-      def version = typeof(ManagerClass).Assembly.GetName().Version.ToString();
       LibrariesManager.LoadPluginsFrom(
         "Nemerle.Macros",
-        $", Version=$version, Culture=neutral, PublicKeyToken=5291d186334f6101",
+        ", Version=0.0.0.0, Culture=neutral, PublicKeyToken=5291d186334f6101",
         loadMacros = true,
         loadParsers = false);
     }
